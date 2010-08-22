@@ -1,0 +1,104 @@
+<html>
+<head>
+<meta name="viewport" content="width=device-width">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<script src="http://prototypejs.org/assets/2009/8/31/prototype.js"></script>
+<style type="text/css">
+<!--
+
+DIV#button1, DIV#button2, DIV#button3 {
+	x-position: absolute;
+	width: 50px;
+	height: 50px;
+	float: left;
+}
+
+.GreenUp { background-color: #003300; } 
+.GreenDown { background-color: Green; }
+.YellowUp { background-color: #333300; } 
+.YellowDown { background-color: Yellow; }
+.RedUp { background-color: #330000; } 
+.RedDown { background-color: Red; }
+
+DIV.Closure {
+	float: none;
+	clear: both;
+}
+
+// -->
+</style>
+</head>
+<body>
+<button onclick="m();">Start</button>
+<div>
+<div id="button3" class="RedUp">Red</div>
+<div id="button2" class="YellowUp">Yellow</div>
+<div id="button1" class="GreenUp">Green</div>
+<div class="Closure"></div>
+<div id="demo"></div>
+<div>LED: <button onclick="send('000000000000ffff','L0H')">ON</button><button onclick="send('000000000000ffff','L0L')">OFF</button></div>
+<div>Light1: <button onclick="send('000000000000ffff','L1H')">ON</button><button onclick="send('000000000000ffff','L1L')">OFF</button></div>
+<div>Light2: <button onclick="send('000000000000ffff','L2H')">ON</button><button onclick="send('000000000000ffff','L2L')">OFF</button></div>
+<div>Light3: <button onclick="send('000000000000ffff','L3H')">ON</button><button onclick="send('000000000000ffff','L3L')">OFF</button></div>
+<button onclick="send('000000000000ffff','L2H')">Light 3</button>
+</div>
+</body>
+<script>
+var _lastMessageIndex = -1; // Request all messages up to this point
+
+function send(addr,payload) {
+	new Ajax.Request("/send",{
+		method:"GET",
+		onSuccess : function() {
+			// alert( "OK" );
+		},
+		parameters: {
+			dest64: addr,
+			payload : payload
+		}
+	});
+}
+
+function m() {
+	new Ajax.Request("/subscribe", {
+		method: "GET",
+		onSuccess : function( resp ) {
+			try {
+				var messages = resp.responseText.evalJSON();
+				for( var i = 0; i < messages.length; i++ ) {
+					var msg = messages[i];
+					_lastMessageIndex = messages[messages.length-1].messageId;
+					if( msg.action == "runAsScript" ) {
+						try {
+							eval( messages[i].message );
+						}
+						catch(e) {
+							alert(e);
+						}
+					}
+					else
+					{
+						if( msg.type == "RxResponse" ) {
+							if( msg.data.charAt(0) == "C" ) {
+								// alert( "Grr: " + msg.data );
+								$("button1").className = msg.data.charAt(2)=="H"?"GreenDown":"GreenUp";
+								$("button2").className = msg.data.charAt(3)=="H"?"YellowDown":"YellowUp";
+								$("button3").className = msg.data.charAt(4)=="H"?"RedDown":"RedUp";
+							}
+						}
+						// $("demo").innerHTML += messages[i].message + "<br/>\n";
+					}
+				}
+			}
+			catch(e) {
+				alert(e);
+			}
+			m();
+		},
+		parameters : {
+			"lastMessageIndex" : _lastMessageIndex
+		}
+	});
+};
+</script>
+</html>
