@@ -13,12 +13,12 @@ DIV#button1, DIV#button2, DIV#button3 {
 	float: left;
 }
 
-.GreenUp { background-color: #003300; } 
-.GreenDown { background-color: Green; }
-.YellowUp { background-color: #333300; } 
-.YellowDown { background-color: Yellow; }
-.RedUp { background-color: #330000; } 
-.RedDown { background-color: Red; }
+.GreenOff { background-color: #003300; } 
+.GreenOn { background-color: Green; }
+.YellowOff { background-color: #333300; } 
+.YellowOn { background-color: Yellow; }
+.RedOff { background-color: #330000; } 
+.RedOn { background-color: Red; }
 
 DIV.Closure {
 	float: none;
@@ -31,22 +31,29 @@ DIV.Closure {
 <body>
 <button onclick="m();">Start</button>
 <div>
-<div id="button3" class="RedUp">Red</div>
-<div id="button2" class="YellowUp">Yellow</div>
-<div id="button1" class="GreenUp">Green</div>
+<div id="button3" class="RedOff">Red</div>
+<div id="button2" class="YellowOff">Yellow</div>
+<div id="button1" class="GreenOff">Green</div>
 <div class="Closure"></div>
 <div id="demo"></div>
-<div>LED: <button onclick="send('000000000000ffff','L0H')">ON</button><button onclick="send('000000000000ffff','L0L')">OFF</button></div>
-<div>Light1: <button onclick="send('000000000000ffff','L1H')">ON</button><button onclick="send('000000000000ffff','L1L')">OFF</button></div>
-<div>Light2: <button onclick="send('000000000000ffff','L2H')">ON</button><button onclick="send('000000000000ffff','L2L')">OFF</button></div>
-<div>Light3: <button onclick="send('000000000000ffff','L3H')">ON</button><button onclick="send('000000000000ffff','L3L')">OFF</button></div>
-<button onclick="send('000000000000ffff','L2H')">Light 3</button>
+<div>Light1: <button onclick="sendText('000000000000ffff','L0H')">ON</button><button onclick="sendText('000000000000ffff','L0L')">OFF</button></div>
+<div>Light2: <button onclick="sendText('000000000000ffff','L1H')">ON</button><button onclick="sendText('000000000000ffff','L1L')">OFF</button></div>
+<div>Light3: <button onclick="sendText('000000000000ffff','L2H')">ON</button><button onclick="sendText('000000000000ffff','L2L')">OFF</button></div>
+<div>Light4: <button onclick="sendText('000000000000ffff','L3H')">ON</button><button onclick="sendText('000000000000ffff','L3L')">OFF</button></div>
+<button onclick="sendText('000000000000ffff','L2H')">Light 3</button>
 </div>
+<div>
+<h2>Remote Control</h2>
+Code Type: <input id="codeType" /><br/>
+Code Length: <input id="codeLength" /><br/>
+Code Value: <input id="codeValue" /><br/>
+<textarea id="codeRaw" style="width: 500px; height: 250px;"></textarea>
+<button onclick="sendRemoteSignal()">Send</button>
 </body>
 <script>
 var _lastMessageIndex = -1; // Request all messages up to this point
 
-function send(addr,payload) {
+function sendText(addr,payload) {
 	new Ajax.Request("/send",{
 		method:"GET",
 		onSuccess : function() {
@@ -54,7 +61,23 @@ function send(addr,payload) {
 		},
 		parameters: {
 			dest64: addr,
+			type : 'byte',
 			payload : payload
+		}
+	});
+}
+
+function sendHex(addr,hex) {
+	// alert( hex );
+	new Ajax.Request("/send",{
+		method:"GET",
+		onSuccess : function() {
+			// alert( "OK" );
+		},
+		parameters: {
+			dest64 : addr,
+			type : 'hex',
+			payload : hex
 		}
 	});
 }
@@ -81,9 +104,79 @@ function m() {
 						if( msg.type == "RxResponse" ) {
 							if( msg.data.charAt(0) == "C" ) {
 								// alert( "Grr: " + msg.data );
-								$("button1").className = msg.data.charAt(2)=="H"?"GreenDown":"GreenUp";
-								$("button2").className = msg.data.charAt(3)=="H"?"YellowDown":"YellowUp";
-								$("button3").className = msg.data.charAt(4)=="H"?"RedDown":"RedUp";
+								$("button1").className = msg.data.charAt(2)=="H"?"GreenOn":"GreenOff";
+								$("button2").className = msg.data.charAt(3)=="H"?"YellowOn":"YellowOff";
+								$("button3").className = msg.data.charAt(4)=="H"?"RedOn":"RedOff";
+							}
+							else if( msg.raw_data.substr( 28, 8 ) == "0099906f" ) {
+								// alert( '1 pressed!' );
+								if( $("button1").hasClassName("GreenOn") ) {
+									sendText( '000000000000ffff','L0L' );
+								}
+								else {
+									sendText( '000000000000ffff','L0H' );
+								}
+							}
+							else if( msg.raw_data.substr( 28, 8 ) == "0099b847" ) {
+								if( $("button2").hasClassName("YellowOn") ) {
+									sendText( '000000000000ffff','L1L' );
+								}
+								else {
+									sendText( '000000000000ffff','L1H' );
+								}
+							}
+							else if( msg.raw_data.substr( 28, 8 ) == "0099f807" ) {
+								if( $("button3").hasClassName("RedOn") ) {
+									sendText( '000000000000ffff','L2L' );
+								}
+								else {
+									sendText( '000000000000ffff','L2H' );
+								}
+							}
+							else if( msg.raw_data.substr( 28, 8 ) == "009928d7" ) {
+									sendText( '000000000000ffff','L0L' );
+									sendText( '000000000000ffff','L1L' );
+									sendText( '000000000000ffff','L2L' );
+							}
+							else if( msg.raw_data.substr( 28, 8 ) == "0099f00f" ) {
+									sendText( '000000000000ffff','L0H' );
+									sendText( '000000000000ffff','L1H' );
+									sendText( '000000000000ffff','L2H' );
+							}
+							else if( msg.nodeInfo.deviceId == "PANDA:DEVICE:003" ) {
+								var type = msg.data.charCodeAt(0);
+
+								if( type == 1 ) {
+									var hashLength = msg.data.charCodeAt(1);
+									var ticks = new Array();
+									var rawCodes = new Array();
+									var offset = 2;
+									for( var i = 0 ; i < hashLength; i++ ) {
+										ticks.push( msg.data.charCodeAt(i+offset) );
+									}
+									offset += hashLength;
+									for( var i = offset; i < msg.data.length; i++ ) {
+										// alert( ticks[msg.data.charCodeAt(i) >> 4] * 50 );
+										rawCodes.push( ticks[msg.data.charCodeAt(i) >> 4] * 50 + 100 ); // Upper Bit --> Space
+										rawCodes.push( ticks[msg.data.charCodeAt(i) & 0x0F] * 50 + 100 ); // Lower Bit --> Message
+									}
+
+									$("codeType").setValue( type );
+									$("codeLength").setValue( "" );
+									$("codeValue").setValue( "" );
+									$("codeRaw").setValue( rawCodes.join("ms ") + "ms" );
+								}
+								else {
+									var length = (msg.data.charCodeAt(1) << 8) + (msg.data.charCodeAt(2) );
+									var value = "";
+									for( var i = 0 ; i < 4; i++ ) {
+										value += pad( msg.data.charCodeAt(3+i).toString(16) );
+									}
+								
+									$("codeType").setValue( type );
+									$("codeLength").setValue( length );
+									$("codeValue").setValue( value );
+								}
 							}
 						}
 						// $("demo").innerHTML += messages[i].message + "<br/>\n";
@@ -91,7 +184,7 @@ function m() {
 				}
 			}
 			catch(e) {
-				alert(e);
+				// alert(e);
 			}
 			m();
 		},
@@ -100,5 +193,56 @@ function m() {
 		}
 	});
 };
+
+function pad( str, len )
+{
+	len = len || 2;
+	return "0".times( Math.max(0,len-str.length) ) + str;
+}
+
+function sendRemoteSignal()
+{
+	var type = parseInt( $("codeType").getValue() );
+	if( type == 1 ) {
+		var ticks = new Array();
+		var tickList = new Array();
+		var durations = $("codeRaw").getValue().split(" ");
+		var str = "";
+		for( var i = 0 ; i < durations.length; i++ ) {
+			if( !durations[i].match(/([0-9]+)ms/) ) {
+				alert( "Crap: " + durations[i] );
+				return;
+			}
+			var tick = Math.floor( (parseInt( RegExp.$1 ) - 100) / 50 );
+			var index = getIndexByTick( tickList, tick );
+			str += index.toString(16);
+		}
+
+		var header = "01" + pad( tickList.length.toString(16) );
+		for( var i = 0 ; i < tickList.length; i++ ) {
+			header += pad( tickList[i].toString(16) );
+		}
+
+		alert( header + str );
+	}
+	else {
+		var length = parseInt( $("codeLength").getValue() );
+		var value = $("codeValue").getValue();
+	
+		var str = pad( type.toString(16) );
+			str += pad( length.toString(16), 4 );
+			str += value;
+		sendHex( "000000000000ffff", str );
+	}
+}
+
+function getIndexByTick( tickList, tick ) {
+	var index = tickList.indexOf(tick);
+	if( index > -1 )
+		return index;
+	tickList.push( tick );
+	return tickList.length - 1;
+}
+
 </script>
 </html>
