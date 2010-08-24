@@ -112,13 +112,18 @@ POE::Component::Server::TCP->new(
                     POE::Kernel->post( $session_id => send => $client->getSubsriptionHeader() );
                     logger( "DEBUG", "Query String: ".$client->{queryString} );
                     logger( "DEBUG", "Client#$session_id Last Message id: " . $client->{lastMessageIndex} );
+                    if( $client->{lastMessageIndex} == -1 ) {
+                        $client->{lastMessageIndex} = scalar(@messages) - 1;
+                    }
                     sendInitMessage( $session_id );
                 }
                 elsif( $client->{uri} eq "/send" ) {
                     logger( "INFO", "I got: " . $client->{queryString} );
+                    my( $type ) = $client->{queryString} =~ /type=([A-Z]+)/i;
                     my( $dest64 ) = $client->{queryString} =~ /dest64=([0-9A-F]{16})/i;
                     my( $payload ) = $client->{queryString} =~ /payload=([^&]+)/;
                     $dest64 = pack( "H*", $dest64 );
+                    $payload = pack( "H*", $payload ) if uc($type) eq "HEX";
                     logger( "INFO", "Sending '$payload' to '$dest64' (".length($dest64).")" );
                     $xbee->transmit_request( $dest64, $payload);
                     POE::Kernel->post( $session_id => send => $client->getStaticContent("DataSent.txt"), 1 );
@@ -194,7 +199,7 @@ sub broadcast
 #---------------------------------------------
 sub sendInitMessage
 #---------------------------------------------
-# Send Unblished Messages on startup -- disconnect if there is any
+# Send Unpublished Messages on startup -- disconnect if there is any
 {
 	my( $client_id ) = @_;
 	# Assumes this is a subscriber
@@ -223,7 +228,7 @@ sub sendUnpublished
             # logger( "INFO", ($startIndex..$endIndex) );
             grep { push @$array_to_send, $messages[$_] } ($startIndex..$endIndex);
             my $message = to_json($array_to_send);
-            logger( "INFO", "Sending messages $startIndex through $endIndex to Client#$client->{client_id}\n=====\n$message\n=====" );
+            logger( "DEBUG", "Sending messages $startIndex through $endIndex to Client#$client->{client_id}\n=====\n$message\n=====" );
             $client->{lastMessageIndex} = $msg_count;
             $client->{state} = "DISCONNECT";
             POE::Kernel->post($client->{client_id} => send => $message, 1 );
@@ -275,6 +280,7 @@ sub trim
 	my $string = shift;
 	$string =~ s/^\s+//;
 	$string =~ s/\s+$//;
+    $string =~ s/\x00//;
 	return $string;
 }
 
@@ -284,6 +290,16 @@ sub hex2ascii
 # Plain perl function that converts hex string to real hex values
 {
 	return pack( "H*", shift );
+}
+
+sub enrichNodeData
+{
+    my( $frame, $xbdb ) = @_;
+    my $rs = $xbdb->execQuery( "SELECT * FROM Node WHERE serial=?", $frame->{serial} );
+    $rs->each( sub {
+        my( $hash ) = @_;
+        $frame->{nodeInfo} = $hash;
+    });
 }
 
 # Create
@@ -310,7 +326,7 @@ threads->new(sub {
 
 	logger( "INFO", "Sending Node Discovery Command to get replies from end-nodes" );
 	$xbee->at_command("ND");
-    $xbee->transmit_request( "\x0013A200406292D4", "L0H" );
+    # $xbee->transmit_request( "\x0013A200406292D4", "L0H" );
 
 	while (1) {
 		my $frame = $xbee->read_api;
@@ -322,9 +338,10 @@ threads->new(sub {
 				
 				# Now ... let subscribers be aware of this change!
 				$frame->{type} = "RxResponse";
+                enrichNodeData( $frame, $xbdb );
 				my $msg = to_json( $frame ) . "\n";
 				logger( "INFO", "Sending: $msg" );
-                delete $frame->{raw_data};
+                # delete $frame->{raw_data};
 				print $remote $msg;
 
 				if( $frame->{data} =~ /CS[HL]+/ ) {
@@ -338,7 +355,7 @@ threads->new(sub {
 						my $my = unpack( "H*", Xbee::API::_shift( \@chunk, 2 ) );
 						my $serial = unpack( "H*", Xbee::API::_shift( \@chunk, 8 ) );
 						my $db = unpack( "C", shift @chunk );
-						my $identifier = join( '', @chunk );
+						my $identifier = trim( join( '', @chunk ) );
 						logger( "INFO", "Found device $identifier" );
 						$xbdb->setNode( $serial, $my, $db, $identifier );
 					}
