@@ -1,31 +1,38 @@
+
+
 /*
- * IRrecord: record and play back IR signals as a minimal 
- * An IR detector/demodulator must be connected to the input RECV_PIN.
- * An IR LED must be connected to the output PWM pin 3.
- * A button must be connected to the input BUTTON_PIN; this is the
- * send button.
- * A visible LED can be connected to STATUS_PIN to provide status.
- *
- * The logic is:
- * If the button is pressed, send the IR code.
- * If an IR code is received, record it.
- *
- * Version 0.11 September, 2009
- * Copyright 2009 Ken Shirriff
- * http://arcfn.com
+ * Copyright (c) 2009, Yusuke Izumi <yizumi@ripplesystem.com>
+ 
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * non-commercial purpose with or without fee is hereby granted, provided that
+ * the above copyright notice and this permission notice appear in all copies.
+ 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+ * UniversalRemote: record and send IR signals via XBee
+ * Receives XBee request and play back IR signals
  */
 
 #include <IRremote.h>
 #include <XBee.h>
 
-int RECV_PIN = 11;
-int BUTTON_PIN = 12;
-int STATUS_PIN = 13;
-int HASH_SIZE = 16;
+int RECV_PIN    = 11;
+int BUTTON_PIN  = 12;
+int STATUS_PIN  = 13;
+int HASH_SIZE   = 16;
+int HASH_LENGTH = 0;
+
 byte HASH[16];
 
 XBee xbee = XBee();
 XBeeAddress64 dest64 = XBeeAddress64( 0x00000000, 0x0000FFFF ); // Broadcast
+Rx64Response rx64 = Rx64Response();
 
 IRrecv irrecv(RECV_PIN);
 IRsend irsend;
@@ -40,20 +47,14 @@ void setup()
   pinMode(STATUS_PIN, OUTPUT);
 }
 
-// Storage for the recorded code
-// int codeType = -1; // The type of code
-// unsigned long codeValue; // The code value if not raw
-// unsigned int rawCodes[RAWBUF]; // The durations if raw
-// int codeLen; // The length of the code
-// int toggle = 0; // The RC5/6 toggle state
-
 // Initializes Hash
 void initTickList()
 {
- for( int i = 0; i <  HASH_SIZE; i++ )
- {
-   HASH[i] = 0x00;
- }
+  HASH_LENGTH = 0;
+  for( int i = 0; i <  HASH_SIZE; i++ )
+  {
+    HASH[i] = 0x00;
+  }
 }
 
 // Get index for the given ticks
@@ -61,6 +62,8 @@ int getIndexForTicks( byte ticks )
 {
   for( int i = 0 ;i < HASH_SIZE; i++ ) {
     if( HASH[i] == 0 || HASH[i] == ticks ) {
+      if( i + 1 > HASH_LENGTH )
+        HASH_LENGTH = i +1;
       HASH[i] = ticks;
       return i;
     }
@@ -75,43 +78,37 @@ void storeCode(decode_results *results) {
   if (codeType == UNKNOWN) {
     // Serial.println("Received unknown code, saving as raw");
     int codeLen = results->rawlen - 1;
+    int codeLenHalf = ( codeLen / 2 ) + (codeLen % 2);
     initTickList();
-    uint8_t payload[codeLen+1];// for int's
-    int data[codeLen];
-    payload[0] = lowByte(codeType);
-    // To store raw codes:
-    // Drop first value (gap)
-    // Convert from ticks to microseconds
-    // Tweak marks shorter, and spaces longer to cancel out IR receiver distortion
+    uint8_t data[codeLenHalf];
+
     for (int i = 1; i <= codeLen; i++) {
-      // if (i % 2) {
-        // Mark
-        // rawCodes[i - 1] = results->rawbuf[i]*USECPERTICK - MARK_EXCESS;
-        data[i-1] = getIndexForTicks( lowByte( results->rawbuf[i] ) ); // Recording in ticks, so we can downsize to bytes
-        Serial.print( " 0x" );
-        Serial.print( data[i-1], HEX );
-        // payload[(i*2)] = lowByte( a );
-        // Serial.print( a, DEC );
-        // Serial.print( "mt " );
-        //Serial.print(" m");
-      // } 
-      // else {
-        // Space
-        // rawCodes[i - 1] = results->rawbuf[i]*USECPERTICK + MARK_EXCESS;
-        // byte b = lowByte(results->rawbuf[i]); // Recording in ticks, so we can downsize to bytes
-        // payload[i] = b;
-        // payload[(i*2)] = lowByte( b );
-        // Serial.print( b, DEC );
-        // Serial.print( "st " );
-        //Serial.print(" s");
-      // }
-      //Serial.print(rawCodes[i - 1], DEC);
+      // Serial.print( results->rawbuf[i] * 50 ); Serial.println( "ms ");
+      if( i % 2 ) {
+        data[(i-1)/2] = getIndexForTicks( lowByte( results->rawbuf[i] ) ) << 4; // Recording in ticks, so we can downsize to bytes
+        // Serial.print( "M: 0x" ); Serial.println( data[(i-1)/2], HEX );
+      }
+      else {
+        data[(i-1)/2] += getIndexForTicks( lowByte( results->rawbuf[i] ) ); // Recording in ticks, so we can downsize to bytes
+        // Serial.print( "S: 0x" ); Serial.println( data[(i-1)/2], HEX );        
+      }
     }
-    //Serial.print("Length: ");
-    //Serial.print( codeLen, DEC );
-    //Serial.println( " bytes" );
+    //Serial.print("Length: "); Serial.print( codeLen, DEC ); Serial.println( " bytes" );
+    int payloadLen = 2 + HASH_LENGTH + codeLenHalf;
+    uint8_t payload[payloadLen];// for int's
+    payload[0] = lowByte(codeType);
+    payload[1] = lowByte(HASH_LENGTH);
+    for( int i = 0 ; i < HASH_LENGTH; i++ ) {
+      payload[i+2] = HASH[i];
+    }
+    for( int i = 0 ; i < codeLenHalf; i++ ) {
+      payload[i+2+HASH_LENGTH] = data[i];
+    }
+    //for( int i = 0 ; i < payloadLen; i++ ) {
+    //  Serial.print( "[" ); Serial.print( i ); Serial.print( "] 0x" ); Serial.println( payload[i], HEX );
+    //}
     Tx64Request txRawCode = Tx64Request( dest64, payload, sizeof(payload) );  // count is int, so int * codeLen = size
-    // xbee.send( txRawCode );
+    xbee.send( txRawCode );
   }
   else {
     if (codeType == NEC) {
@@ -122,20 +119,6 @@ void storeCode(decode_results *results) {
         return;
       }
     } 
-    else if (codeType == SONY) {
-      //Serial.print("Received SONY: ");
-    } 
-    else if (codeType == RC5) {
-      //Serial.print("Received RC5: ");
-    } 
-    else if (codeType == RC6) {
-      //Serial.print("Received RC6: ");
-    } 
-    else {
-      //Serial.print("Unexpected codeType ");
-      //Serial.print(codeType, DEC);
-      //Serial.println("");
-    }
     unsigned long codeValue = results->value;
     byte a = (byte) codeValue;
     byte b = lowByte( codeValue >> 8 );
@@ -160,8 +143,14 @@ void storeCode(decode_results *results) {
   }
 }
 
-void sendCode(int repeat) {
-  /*
+// Storage for the recorded code
+// int codeType = -1; // The type of code
+// unsigned long codeValue; // The code value if not raw
+// unsigned int rawCodes[RAWBUF]; // The durations if raw
+// int codeLen; // The length of the code
+// int toggle = 0; // The RC5/6 toggle state
+
+void sendCode(int repeat, int codeType, unsigned long codeValue, unsigned int rawCodes[], int codeLen, int toggle) {
   if (codeType == NEC) {
     if (repeat) {
       irsend.sendNEC(REPEAT, codeLen);
@@ -206,7 +195,6 @@ void sendCode(int repeat) {
     irsend.sendRaw(rawCodes, codeLen, 38);
     // Serial.println("Sent raw");
   }
-  */
 }
 
 int lastButtonState;
@@ -214,17 +202,46 @@ int lastButtonState;
 void loop() {
   // If button pressed, send the code.
   int buttonState = digitalRead(BUTTON_PIN);
+  
   if (lastButtonState == HIGH && buttonState == LOW) {
     // Serial.println("Released");
     irrecv.enableIRIn(); // Re-enable receiver
   }
 
-  if (buttonState) {
+  xbee.readPacket();
+  if ( xbee.getResponse().isAvailable() ) {
+    // Serial.println( "Received message from someone" );
+    if( xbee.getResponse().getApiId() == RX_64_RESPONSE ) {
+      xbee.getResponse().getRx64Response(rx64);
+      int codeType = rx64.getData(0); // First Byte
+      int codeLen = ( rx64.getData(1) << 8 ) + rx64.getData(2); // Length
+
+      if( codeType == UNKNOWN ) {
+        int codeLen = ( rx64.getData(1) << 8 ) + rx64.getdData(2);
+        
+      }
+      else {
+        unsigned long a = (unsigned long)rx64.getData(3);
+        unsigned long b = (unsigned long)rx64.getData(4);
+        unsigned long c = (unsigned long)rx64.getData(5);
+        unsigned long d = (unsigned long)rx64.getData(6);
+
+        unsigned long codeValue = (unsigned long) (a << 24) | (b << 16) | (c << 8) | d;
+        // Serial.print( "CodeType: " ); Serial.println( codeType, DEC );
+        // Serial.print( "CodeLen: " ); Serial.println( codeLen, DEC );
+        // Serial.print( "CodeValue: " ); Serial.println( codeValue, HEX );
+        unsigned int rawCodes[0];
+        sendCode( 0, codeType, codeValue, rawCodes, codeLen, 0 );
+      }
+    }
+    irrecv.enableIRIn(); // resume receiver
+  }
+  else if (buttonState) {
     // Serial.println("Pressed, sending");
-    digitalWrite(STATUS_PIN, HIGH);
-    sendCode(lastButtonState == buttonState);
-    digitalWrite(STATUS_PIN, LOW);
-    delay(50); // Wait a bit between retransmissions
+    // digitalWrite(STATUS_PIN, HIGH);
+    // sendCode(lastButtonState == buttonState);
+    // digitalWrite(STATUS_PIN, LOW);
+    // delay(50); // Wait a bit between retransmissions
   } 
   else if (irrecv.decode(&results)) {
     digitalWrite(STATUS_PIN, HIGH);
@@ -234,4 +251,3 @@ void loop() {
   }
   lastButtonState = buttonState;
 }
-
