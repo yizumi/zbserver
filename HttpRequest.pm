@@ -48,7 +48,7 @@
 			uri				=> undef,   # e.g. "/", "/submit", "/subscribe"
 			http_version	=> undef,   # e.g. "1.1"
 			headers => \%headers,
-			lastMessageIndex => -1
+			lastMessageIndex => -1      # no request for all messages
 		}, $klass;
 	}
 
