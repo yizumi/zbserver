@@ -1,5 +1,3 @@
-
-
 /*
  * Copyright (c) 2009, Yusuke Izumi <yizumi@ripplesystem.com>
  
@@ -22,8 +20,8 @@
 #include <IRremote.h>
 #include <XBee.h>
 
-int RECV_PIN    = 11;
-int BUTTON_PIN  = 12;
+int RECV_PIN    = 12;
+int BUTTON_PIN  = 11;
 int STATUS_PIN  = 13;
 int HASH_SIZE   = 16;
 int HASH_LENGTH = 0;
@@ -78,6 +76,22 @@ void storeCode(decode_results *results) {
   if (codeType == UNKNOWN) {
     // Serial.println("Received unknown code, saving as raw");
     int codeLen = results->rawlen - 1;
+
+    Serial.print( "\nRAW: " );
+    for (int i = 1; i <= codeLen; i++) {
+      if (i % 2) {
+        // Mark
+        Serial.print( results->rawbuf[i]*USECPERTICK - MARK_EXCESS, DEC );
+        Serial.print("m ");
+      } 
+      else {
+        // Space
+        Serial.print( results->rawbuf[i]*USECPERTICK + MARK_EXCESS, DEC );
+        Serial.print("s ");
+      }
+    }
+    Serial.println("");
+
     int codeLenHalf = ( codeLen / 2 ) + (codeLen % 2);
     initTickList();
     uint8_t data[codeLenHalf];
@@ -214,13 +228,50 @@ void loop() {
     if( xbee.getResponse().getApiId() == RX_64_RESPONSE ) {
       xbee.getResponse().getRx64Response(rx64);
       int codeType = rx64.getData(0); // First Byte
-      int codeLen = ( rx64.getData(1) << 8 ) + rx64.getData(2); // Length
 
+      // Handling raw code
       if( codeType == UNKNOWN ) {
-        int codeLen = ( rx64.getData(1) << 8 ) + rx64.getdData(2);
+        // See how long the header is (header contains a list of tick counts)
+        unsigned int headerSize = (unsigned int) rx64.getData(1);
+        // Serial.print( "Header size: " ); Serial.println( headerSize );
+        // Let's create the list of ticks
+        unsigned short tickList[headerSize];
+        int offset = 2;
+        for( int i = 0; i < headerSize; i++ ) {
+          tickList[i] = (short) rx64.getData(offset + i);
+          // Serial.print( "Tick[" ); Serial.print( i ); Serial.print( "=" ); Serial.println( tickList[i] );
+        }
         
+        // Let's convert the data into rawCodes
+        offset += headerSize;
+        int codeLen = (rx64.getDataLength() - offset) * 2;
+        unsigned int rawCodes[codeLen];
+        // Serial.print( "Code Length: " ); Serial.println( codeLen );
+        for( int i = 0; i < codeLen; i++ ) {
+          // Read data
+          unsigned short b = (byte) rx64.getData( offset + (i/2) );
+          // Read Upper Byte  
+          if( (i % 2) == 0 ) {
+            unsigned short ix = b >> 4;
+            rawCodes[i] = tickList[ix] * USECPERTICK - MARK_EXCESS; // Marks (Upper byte)
+            Serial.print( rawCodes[i] ); Serial.print( "m " );
+          }
+          else {
+            unsigned short ix = b & 0xF;
+            // Serial.print( ix ); Serial.print( "-");
+            rawCodes[i] = tickList[ix] * USECPERTICK + MARK_EXCESS; // Spaces (Lower Byte)
+            Serial.print( rawCodes[i] ); Serial.print( "s " );
+          }
+        }
+        Serial.println();
+        // Now Send it!
+        sendCode( 0, codeType, 0, rawCodes, codeLen, 0 );
+        // Serial.println( "Done" );
       }
+      // Handling Known Code
       else {
+        int codeLen = ( rx64.getData(1) << 8 ) + rx64.getData(2); // Length
+
         unsigned long a = (unsigned long)rx64.getData(3);
         unsigned long b = (unsigned long)rx64.getData(4);
         unsigned long c = (unsigned long)rx64.getData(5);
@@ -236,6 +287,7 @@ void loop() {
     }
     irrecv.enableIRIn(); // resume receiver
   }
+  /*
   else if (buttonState) {
     // Serial.println("Pressed, sending");
     // digitalWrite(STATUS_PIN, HIGH);
@@ -243,6 +295,7 @@ void loop() {
     // digitalWrite(STATUS_PIN, LOW);
     // delay(50); // Wait a bit between retransmissions
   } 
+  */
   else if (irrecv.decode(&results)) {
     digitalWrite(STATUS_PIN, HIGH);
     storeCode(&results);
