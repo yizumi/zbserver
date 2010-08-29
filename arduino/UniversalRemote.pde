@@ -68,6 +68,82 @@ int getIndexForTicks( byte ticks )
   }
 }
 
+void quantize( volatile unsigned int *data, int len )
+{
+  short ticksSize = 0;
+  short ticks[] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+  short count[] = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 };
+  short qticks[] = { -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1 }; // quantized ticks
+  
+  // Serial.print( "Length: " ); Serial.println( len );
+  
+  // Find how many elements there are in each tick bucket.
+  for( int i = 0 ; i < len; i++ ) {
+    // Serial.print( data[i+1] ); Serial.print( " " );
+    for( short n = 0; n < 32; n++ ) {
+      if( ticks[n] == 0 ) {
+        ticks[n] = lowByte( data[i+1] );
+        ticksSize = n;
+      }
+      if( ticks[n] == lowByte( data[i+1] ) ) {
+        count[n]++;
+        break;
+      }
+    }
+  }
+  
+  // Seek for groups by finding adjacent items
+  for( short t = 0 ; t < ticksSize; t++ ) {
+    if( qticks[t] > -1 ) continue;
+    for( short s = t + 1; s < ticksSize; s++ ) {
+      if( qticks[s] > -1 ) continue;
+      for( short u = s + 1; u < ticksSize; u++ ) {
+        if( qticks[u] > -1 ) continue;
+        // If Tom is the middle guy
+        if( ( ticks[t] - 1 == ticks[s] && ticks[t] + 1 == ticks[u] ) ||
+            ( ticks[t] - 1 == ticks[u] && ticks[t] + 1 == ticks[s] ) ) {
+          qticks[t] = ticks[t]; qticks[s] = ticks[t]; qticks[u] = ticks[t];
+        }
+        // If Sammy is the middle guy
+        if( ( ticks[s] - 1 == ticks[t] && ticks[s] + 1 == ticks[u] ) ||
+            ( ticks[s] - 1 == ticks[u] && ticks[s] + 1 == ticks[t] ) ) {
+          qticks[t] = ticks[s]; qticks[s] = ticks[s]; qticks[u] = ticks[s];
+        }
+        // If Uske is the middle guy
+        if( ( ticks[u] - 1 == ticks[t] && ticks[u] + 1 == ticks[s] ) ||
+            ( ticks[u] - 1 == ticks[s] && ticks[u] + 1 == ticks[t] ) ) {
+          qticks[t] = ticks[u]; qticks[s] = ticks[u]; qticks[u] = ticks[u];
+        }        
+      }
+    }
+    if( qticks[t] == -1 ) {
+      qticks[t] = ticks[t];
+    }
+  }
+  
+  // if( ticksSize >= 16 ) {
+    for( short i = 1 ; i <= len; i++ ) {
+      if( data[i] > 0 ) {
+        for( short t = 0 ; t < ticksSize; t++ ) {
+          if( data[i] == ticks[t] ) {
+            data[i] = qticks[t];
+          }        
+        }
+      }
+    }
+  // }
+#ifdef X_DEBUG
+  else {
+    Serial.println( "Not quantizing the data" );
+  }
+#endif
+  
+  // for( short i = 0; i < ticksSize; i++ ) {
+  //   Serial.print( "[" ); Serial.print( i ); Serial.print( "] " );
+  //   Serial.print( ticks[i] ); Serial.print( " " ); Serial.print( count[i] ); Serial.print( " " ); Serial.println( qticks[i] );
+  // }
+}
+
 // Stores the code for later playback
 // Most of this code is just logging
 void storeCode(decode_results *results) {
@@ -76,7 +152,8 @@ void storeCode(decode_results *results) {
   if (codeType == UNKNOWN) {
     // Serial.println("Received unknown code, saving as raw");
     int codeLen = results->rawlen - 1;
-
+    quantize( results->rawbuf, codeLen );
+    /*
     Serial.print( "\nRAW: " );
     for (int i = 1; i <= codeLen; i++) {
       if (i % 2) {
@@ -91,6 +168,7 @@ void storeCode(decode_results *results) {
       }
     }
     Serial.println("");
+    */
 
     int codeLenHalf = ( codeLen / 2 ) + (codeLen % 2);
     initTickList();
@@ -254,16 +332,16 @@ void loop() {
           if( (i % 2) == 0 ) {
             unsigned short ix = b >> 4;
             rawCodes[i] = tickList[ix] * USECPERTICK - MARK_EXCESS; // Marks (Upper byte)
-            Serial.print( rawCodes[i] ); Serial.print( "m " );
+            // Serial.print( rawCodes[i] ); Serial.print( "m " );
           }
           else {
             unsigned short ix = b & 0xF;
             // Serial.print( ix ); Serial.print( "-");
             rawCodes[i] = tickList[ix] * USECPERTICK + MARK_EXCESS; // Spaces (Lower Byte)
-            Serial.print( rawCodes[i] ); Serial.print( "s " );
+            // Serial.print( rawCodes[i] ); Serial.print( "s " );
           }
         }
-        Serial.println();
+        // Serial.println();
         // Now Send it!
         sendCode( 0, codeType, 0, rawCodes, codeLen, 0 );
         // Serial.println( "Done" );
