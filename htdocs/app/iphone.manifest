@@ -1,0 +1,17 @@
+CACHE MANIFEST
+
+# Version 0.0.3
+
+# CACHE:
+NETWORK:
+/app/img/icon.png
+/app/img/iphone_startup.png
+../sencha/resources/css/ext-touch.css
+/sencha/ext-touch.js
+iphone.js
+css/iphone.css
+devices/Ripple/manufacture.js
+devices/Ripple/SmartPlug.js
+devices/Ripple/UniversalRemote.js
+devices/devices.js
+Ripple.js
