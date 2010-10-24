@@ -13,7 +13,11 @@
 			my $dbh = DBI->connect("DBI:mysql:database=$database;host=$host", $user, $pass);
 			
 			my $obj = bless {
-				dbh => $dbh
+				dbh => $dbh,
+                user => $user,
+                pass => $pass,
+                database => $database,
+                host => $host
 			}, $klass;
 
 			$obj->initDatabase();
@@ -62,19 +66,43 @@
 			]);
 		}
 
+        sub tryThis
+        {
+            my( $self, $sub ) = @_;
+            my $rv;
+            for( my $i = 0 ; $i < 3; $i++ ) {
+                eval {
+                    $rv = $sub->();
+                };
+                if( $@ ) {
+                    # Todo; THis needs to determine whether the error is driven out of stale connection
+                    print( $@ . "\n" );
+                    # Reopen the database connection
+                    $self->{dbh}->disconnect();
+                    delete $self->{dbh};
+                    $self->{dbh} = DBI->connect("DBI:mysql:database=$self->{database};host=$self->{host}", $self->{user}, $self->{pass} );
+                }
+                else {
+                    return $rv;
+                }
+            }
+            return undef;
+        }
+
 		sub execUpdate
 		{
 			my $self = shift;
 			my $sql = shift;
 			my @params = @_;
 
-			my $dbh = $self->{dbh};
-
-			my $stmt = $dbh->prepare( $sql );
-			for( my $i = 0; $i < scalar( @params ); $i++ ) {
-				$stmt->bind_param( $i + 1, $params[$i] ); # Funny, bind_param starts counting from 1
-			}
-			return $stmt->execute();
+            return $self->tryThis( sub {
+                my $dbh = $self->{dbh};
+                my $stmt = $dbh->prepare( $sql );
+                for( my $i = 0; $i < scalar( @params ); $i++ ) {
+                    $stmt->bind_param( $i + 1, $params[$i] ); # Funny, bind_param starts counting from 1
+                }
+                return $stmt->execute() or die( "Failed to run: \"$sql\" (Retrying)" );
+            } );
 		}
 
 		sub execQuery
@@ -83,14 +111,15 @@
 			my $sql = shift;
 			my @params = @_;
 
-			my $dbh = $self->{dbh};
-
-			my $stmt = $dbh->prepare( $sql );
-			for( my $i = 0; $i < scalar( @params ); $i++ ) {
-				$stmt->bind_param( $i + 1, $params[$i] ); # Funny, bind_param starts counting from 1
-			}
-			$stmt->execute();
-			return new ResultSet( $stmt );
+            return $self->tryThis( sub {
+                my $dbh = $self->{dbh};
+                my $stmt = $dbh->prepare( $sql );
+                for( my $i = 0; $i < scalar( @params ); $i++ ) {
+                    $stmt->bind_param( $i + 1, $params[$i] ); # Funny, bind_param starts counting from 1
+                }
+                $stmt->execute() or die( "Failed to run: \"$sql\" (Retrying)" );
+                return new ResultSet( $stmt );
+            } );
 		}
 
 		sub storeRxFrame
@@ -120,18 +149,20 @@
 		sub getCurrentState
 		{
 			my( $self, $addr64 ) = @_;
-			my $dbh = $self->{dbh};
 
-			my $stmt = $dbh->prepare( "SELECT currentState FROM RxResponse WHERE address64 = ?" );
-			$stmt->bind_param( 1, $addr64 );
-			$stmt->execute();
+            $self->tryThis( sub {
+                my $dbh = $self->{dbh};
+                my $stmt = $dbh->prepare( "SELECT currentState FROM RxResponse WHERE address64 = ?" );
+                $stmt->bind_param( 1, $addr64 );
+                $stmt->execute();
 
-			my $row;
-			while( $row = $stmt->fetchrow_arrayref )
-			{
-				return $row->[0];
-			}
-			return undef;
+                my $row;
+                while( $row = $stmt->fetchrow_arrayref )
+                {
+                    return $row->[0];
+                }
+                return undef;
+            } );
 		}
 	}
 

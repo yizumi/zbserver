@@ -2,6 +2,7 @@
 
 	package HttpRequest;
 	use JSON;
+	use Digest::MD5 qw( md5 );
 
 	my $init = 0;
 	my $cache_subscription_header = "Content-Type: application/json\nCache-Control: non-cache\nProgma: no-cache\n\n";
@@ -17,6 +18,7 @@
         "gif"   => "image/gif",
         "css"   => "text/css",
         "js"    => "application/x-javascript",
+        "manifest" => "text/cache-manifest"
     };
 
 	sub init
@@ -86,9 +88,9 @@
 			}
 		}
 		elsif( $self->{state} eq "HEADER" ) {
-			if( $input =~ m/^([^:]+):(.*)/ ) {
+			if( $input =~ m/^([^:]+):(.*)\r\n / ) {
 				my $key = trim($1);
-				my $value = trim($2);
+				my $value = $2; # leave this untouched
 				$self->{headers}->{lc($key)} = $value;
 				return 1;
 			}
@@ -100,7 +102,7 @@
                 }
                 elsif( $self->{method} eq "POST" ) {
                     # print("**** POST ... turning into BODY\n" );
-                    $self->{state} = "BODY";
+                    $self->{state} = "READY";
                     $self->{body} = "";
                     return 1;
                 }
@@ -123,6 +125,35 @@
 		}
 	}
 
+	sub handShakeKey
+	{
+		my( $self ) = @_;
+		my $strkey1 = $self->{header}->{"sec-websocket-key1"};
+		my $strkey2 = $self->{header}->{"sec-websocket-key2"};
+		my $numkey1 = $strkey1; $numkey1 =~ s/[^\d]//g; $numkey1 *= 1;
+		my $numkey2 = $strkey2; $numkey2 =~ s/[^\d]//g; $numkey2 *= 1;
+		my $spaces1 = $strkey1; $spaces1 =~ s/[^\ ]//g; $spaces1 = length( $spaces1 );
+		my $spaces2 = $strkey2; $spaces2 =~ s/[^\ ]//g; $spaces2 = length( $spaces2 );
+
+		print( "strkey1: $strkey1\n" );
+		print( "strkey2: $strkey2\n" );
+		print( "numkey1: $numkey1\n" );
+		print( "numkey2: $numkey2\n" );
+		print( "spaces1: $spaces1\n" );
+		print( "spaces1: $spaces2\n" );
+
+		if( $spaces1 == 0 || 
+			$spaces2 == 0 || 
+			$numkey1 % $spaces1 != 0 || 
+			$numkey2 % $spaces2 != 0 ) {
+			print( "WebSocket contained an invalid key -- closing the connection.\n" );
+			return 0;
+		}
+
+		my $hash = md5( $
+	}
+
+
 	sub isHeader
 	{
 		my( $self, $input ) = @_;
@@ -138,10 +169,10 @@
 	sub getStaticContent
 	{
         my( $self, $file ) = @_;
-        my( $ext ) = $file =~ /.*\.([A-Z0-9]+)^/i;
+        my( $ext ) = $file =~ /\.([A-Z0-9]+)$/i;
         my $size = -s "$path/$file";
         my $data = "HTTP/".$self->{http_version}." 200 OK\nContent-Type: ".
-            $MIME{$ext}."\nContent-Length: $size\nCache-Control: non-cache\nProgma: no-chace\n\n";
+            $MIME->{$ext}."\nContent-Length: $size\nCache-Control: non-cache\nProgma: no-chace\nExpires: Thu, 01 Dec 1994 16:00:00 GMT\n\n";
 		open FH, "< $path/$file";
 		while( <FH> ) {
 			$data .= $_;

@@ -1,0 +1,446 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf8"> 
+<style>
+
+DIV,SPAN,A,P {
+	font-family: メイリオ;
+	color: #333;
+	font-size: 10pt;
+	line-height: 150% !important;
+}
+
+#chartcontainer {
+	width: 750px;
+	background: -moz-linear-gradient(top, #fff, #eee);
+	background: -webkit-gradient(linear, left top, left bottom, from(#fff), to(#eee));
+	border: 1px solid #CCC;
+	margin: auto;
+}
+
+#charttext {
+	margin: auto;
+	width: 750px;
+}
+
+#infobar {
+	margin: 0px auto 15px auto;
+	width: 750px;
+}
+
+#weather {
+	margin-left: 10px;
+	color: #00c;
+	font-size: 12pt;
+	font-weight: bold;
+}
+
+#tiempo {
+	margin-left: 10px;
+	color: #00c;
+	font-size: 12pt;
+	font-weight: bold;
+}
+
+DIV.Title {
+	font-size: 12pt;
+	position: relative;
+	top: -325px;
+	left: 328px;
+	font-weight: bold;
+}
+
+DIV.TitleY {
+	font-size: 9pt;
+	color: #999;
+	position: relative;
+	top: -275px;
+	left: 5px;
+}
+
+DIV.TitleX {
+	font-size: 9pt; 
+	top: -36px;
+	left: 362px;
+	color: #999;
+	position: relative;
+}
+
+DIV.Float { float: left; }
+DIV.Right { float: Right; }
+DIV.Close { float: none; clear: both; }
+
+</style>
+<script type="text/javascript" src="prototype.js"></script>
+<script type="text/javascript" src="jscharts.js"></script>
+<script type="text/javascript" src="History.js"></script>
+<script type="text/javascript" src="Grid.js"></script>
+<script type="text/javascript">
+
+
+var HistogramDataReader = Class.create({
+	initialize : function( array ) {
+		this.data = array;
+		this.data.sort(function(a,b){return a-b;}); // Sort
+	},
+
+	/*
+	 * @samplingFreq:int use SamplingFreq
+	 * @start:Date start time (inclusive)
+	 * @end:Date end time in yyyymmddHHMMSS format (exclusive)
+	 */
+	getTotalsBy : function( samplingFreq, startDate, endDate ) {
+		var tStart = this.getNearestBiggerValueIndex( startDate.getTime() );
+		var tEnd = this.getNearestSmallerValueIndex( endDate.getTime() );
+		var getIdx, idx, d0 = startDate, d1, t0 = startDate.getTime();
+
+		switch(samplingFreq.toLowerCase()){
+			case "year":   getIdx = function(t1){d1=new Date(t1);return d1.getFullYear()-d0.getFullYear();}; break;
+			case "quater": getIdx = function(t1){}; break;
+			case "month":  getIdx = function(t1){d1=new Date(t1);return ((d1.getFullYear()-d0.getFullYear())*12)+(d1.getMonth()-d0.getMonth());}; break;
+			case "day":    getIdx = function(t1){return Math.floor((t1-t0)/86400000); }; break;
+			case "hour":   getIdx = function(t1){return Math.floor((t1-t0)/3600000); }; break;
+			case "minute": getIdx = function(t1){return Math.floor((t1-t0)/60000); }; break;
+			case "second": getIdx = function(t1){return Math.floor((t1-t0)/1000); }; break;
+		}
+
+		var totals = new Array();
+		for( var i = 0; i < getIdx( endDate.getTime() ); i++ ) {
+			totals.push(0);
+		}
+
+		for( var i = tStart; i <= tEnd; i++ ) {
+			totals[getIdx(new Date(this.data[i]))]++;
+		}
+		return totals;
+	},
+
+	// Gets the nearest bigger value (Used for greater-than-or-equal-to, i.e. inclusive)
+	getNearestBiggerValueIndex : function( x ) {
+		if( x <= this.data[0] )
+			return 0;
+		if( x > this.data[this.data.length-1] )
+			return -1;
+		// TODO: consider using binary search
+		/*
+		for( var i = this.data.length-1; i >= 0; i-- ) {
+			if( this.data[i] < t )
+				return i+1;
+		}
+		*/
+		var low = 0, high = this.data.length - 1, mid;
+		while( low <= high ) {
+			mid = Math.floor( ( low + high ) / 2 );
+			if( this.data[mid] < x )
+				low = mid + 1;
+			else if( this.data[mid] > x )
+				high = mid - 1;
+			else {
+				// we want to include all that matches, so make sure we capture all
+				for( var i = mid; i >= 0; i-- ) {
+					if( this.data[i] < x )
+						return i+1;
+				}
+				return mid;
+			}
+		}
+		// alert( x + ":" + low + "/" + high );
+		if( this.data[low] >= x )
+			return low;
+		throw new Error( "Shouldn't be here!" );
+
+	},
+
+	// Gets the nearest smaller value (Used for smaller-than, i.e. exclusive)
+	getNearestSmallerValueIndex: function( x ) {
+		if( x <= this.data[0] )
+			return -1;
+		if( x > this.data[this.data.length-1] )
+			return this.data.length-1;
+		// TODO: consider using binary search
+		/*
+		for( var i = 0 ; i < this.data.length; i++ ) {
+			return i-1;
+		}
+		*/
+		var low = 0, high = this.data.length - 1, mid;
+		while( low <= high ) {
+			mid = Math.floor( ( low + high ) / 2 );
+			if( this.data[mid] < x )
+				low = mid + 1;
+			else if( this.data[mid] > x )
+				high = mid - 1;
+			else {
+				for( var i = mid; i >= 0; i-- ) {
+					if( this.data[i] < x )
+						return i;
+				}
+				return -1;
+			}
+		}
+		if( this.data[high] < x )
+			return high;
+		throw new Error( "Shouldn't be here!" );
+	},
+
+	// integer: 99991231235959
+	// 
+	addRecord : function( time ) {
+		var index = this.getNearestBiggerValueIndex( time );
+		if(index == -1 )
+			this.data.push( time );
+		else
+			this.data.splice( index, 0, time );
+	}
+});
+
+var TestUnit = Class.create({
+	errors : new Array(),
+	getErrorMessage : function() {
+		return this.errors.join("\n");
+	},
+	assertEquals : function( msg, a, b ) {
+		if( a != b ) {
+			this.errors.push( "Failed on: " + msg + "(Result: " + a + ", expected: " + b + ")" );
+		}
+	},
+	hasErrors : function() {
+		return this.errors.length > 0;
+	}
+});
+
+(function()
+{
+	var hdr = new HistogramDataReader( [0,1,4,5,9,14,14,23,24,28,31,32] );
+	var testUnit = new TestUnit();
+	testUnit.assertEquals( "Test#1", hdr.getNearestSmallerValueIndex(0), -1 );
+	testUnit.assertEquals( "Test#2", hdr.getNearestSmallerValueIndex(1), 0 );
+	testUnit.assertEquals( "Test#3", hdr.getNearestSmallerValueIndex(14), 4 );
+	testUnit.assertEquals( "Test#4", hdr.getNearestSmallerValueIndex(15), 6 );
+	testUnit.assertEquals( "Test#5", hdr.getNearestSmallerValueIndex(32), 10 );
+	testUnit.assertEquals( "Test#6", hdr.getNearestSmallerValueIndex(33), 11 );
+	
+	testUnit.assertEquals( "Test#7", hdr.getNearestBiggerValueIndex(-1), 0 );
+	testUnit.assertEquals( "Test#8", hdr.getNearestBiggerValueIndex(0), 0 );
+	testUnit.assertEquals( "Test#9", hdr.getNearestBiggerValueIndex(1), 1 );
+	testUnit.assertEquals( "Test#10", hdr.getNearestBiggerValueIndex(4), 2 );
+	testUnit.assertEquals( "Test#11", hdr.getNearestBiggerValueIndex(13), 5 );
+	testUnit.assertEquals( "Test#12", hdr.getNearestBiggerValueIndex(32), 11 );
+	testUnit.assertEquals( "Test#13", hdr.getNearestBiggerValueIndex(33), -1 );
+
+	hdr.addRecord(0); testUnit.assertEquals( "Test#13", hdr.data[1], 0 );
+	hdr.addRecord(13); testUnit.assertEquals( "Test#13", hdr.data[6], 13 );
+	hdr.addRecord(14); testUnit.assertEquals( "Test#13", hdr.data[9], 14 );
+	hdr.addRecord(15); testUnit.assertEquals( "Test#13", hdr.data[10], 15 );
+	hdr.addRecord(32); testUnit.assertEquals( "Test#13", hdr.data[16], 32 );
+	hdr.addRecord(33); testUnit.assertEquals( "Test#13", hdr.data[17], 33 );
+	alert( hdr.data.join(",") );
+
+	if( testUnit.hasErrors() ) {
+		alert( "Test failed:\n" + testUnit.getErrorMessage() );
+	}
+	else {
+		alert( "OK" );
+	}
+}); // ();
+
+var Stopwatch = Class.create({
+	initialize : function( startNow ) {
+		if( startNow ) {
+			this.start();
+		}
+	},
+	start : function() {
+		this.startTime = new Date().getTime();
+	},
+	stop : function(doAlert) {
+		this.endTime = new Date().getTime();
+		if( doAlert ) {
+			this.alert();
+		}
+	},
+	getDiff : function() {
+		return this.endTime - this.startTime;
+	},
+	alert : function() {
+		alert( this.getDiff() + "ms" );
+	},
+	toString : function() {
+		return this.getDiff() + "ms";
+	}
+});
+
+Date.prototype.trimToDay = function() {
+	this.setHours(0);
+	this.setMinutes(0);
+	this.setSeconds(0);
+	this.setMilliseconds(0);
+};
+
+Date.prototype.trimToHour = function() {
+	this.setMinutes(0);
+	this.setSeconds(0);
+	this.setMilliseconds(0);
+};
+
+Date.prototype.trimToMinute = function() {
+	this.setSeconds(0);
+	this.setMilliseconds(0);
+}
+
+function debug( str )
+{
+	if( console && console.log ) {
+		console.log( "[" + new Date() + "] " + str );
+	}
+}
+
+var Loop = {
+	$for : function(start,end,f) {
+		var rv, control = { "continue" : true };
+		for( var i = start; i < end; i++ ) {
+			rv = f( i, control );
+			if( !control.continue )
+				break;
+		}
+		return rv;
+	}
+};
+
+function main()
+{
+	// Generate sample Data
+	var hdr = new HistogramDataReader( (function(){
+		// In reality, we should be populating this data from database
+		// For testing, generate one week worth of data.
+		var past = new Date().getTime() - (7*24*60*60*1000);
+		var diff = new Date().getTime() - past;
+		var rawdata = new Array();
+		for( var i = 0 ; i < 10000; i++ ) {
+			rawdata.push( Math.floor( (Math.random() * diff) + past ) );
+		}
+		return rawdata;
+	})());
+
+	// generate chart
+	var myChart = new JSChart('chartcontainer', 'bar');
+	myChart.setSize( 750, 300 );
+	myChart.setBarOpacity( 0.95 );
+	myChart.setBarSpacingRatio( 40 );
+	myChart.setBarColor( "#36f" );
+	myChart.setTitle( "" );
+	myChart.setAxisNameX( "" );
+	myChart.setAxisNameY( "" );
+
+	var fUpdate = function() {
+		/*
+		var start = new Date(); today.trimToDay();
+		var end = new Date( today.getTime() + 86400000 );
+		*/
+
+		// Display up to 30 seconds
+		var start = new Date(); start.trimToMinute(); start.setMinutes( start.getMinutes() - 30 );
+		var end = new Date(); start.trimToMinute(); end.setMinutes( end.getMinutes() + 1 );
+
+		var sw = new Stopwatch(1);
+		// var totals = hdr.getTotalsBy( 'hour', start, end );
+		var totals = hdr.getTotalsBy( 'minute', start, end );
+		sw.stop();
+		debug( "Data prep took " + sw +  " :)" );
+		// Transform the array[int] into a [String,int] with the axis label
+		// Loop.$for(0,24,function(i,control){totals[i]=[""+i,totals[i]?totals[i]:0];});
+		Loop.$for(0,totals.length,function(i,control){totals[i]=[(30-i)+"",totals[i]?totals[i]:0];});
+		myChart.setDataArray(totals);
+		sw.start();
+		myChart.draw();
+		sw.stop();
+		debug( "GUI draw took " + sw +  " :)" );
+
+	};
+
+	fUpdate();
+
+	// Set chart title in japanese
+	var charttext = $("charttext");
+	charttext.appendChild( new Element("DIV", {"class": "TitleY"} ).update("入退数") ); 
+	charttext.appendChild( new Element("DIV", {"class": "TitleX"} ).update("時間帯") ); 
+	charttext.appendChild( new Element("DIV", {"class": "Title"} ).update("本日の入退数") ); 
+
+	// Set the close at in the info bar
+	window.setInterval( function() { var d = new Date(); $("tiempo").update( pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) ); }, 1000 );
+
+	// Set fake counter
+	window.setInterval( function() { hdr.addRecord( new Date().getTime() ); fUpdate(); }, 3333 );
+
+	// 
+	// new grid = Grid.create( $("grid"), columns, data );
+
+	new History( {
+		menu : {
+			"entrance" : "divEntrance",
+			"heatmap" : "divHeatmap",
+			"setup" : "divSetup"
+		},
+		entrance : function() {
+			this.select( "entrance" );
+		},
+		heatmap : function() {
+			this.select( "heatmap" );
+		},
+		setup : function() {
+			this.select( "setup" );
+		},
+		select : function( name ) {
+			for( var key in this.menu ) {
+				if( key == name )
+					$(this.menu[key]).show();
+				else
+					$(this.menu[key]).hide();
+			}
+		}
+	} ).start();
+}
+
+function pad(str){
+	return (str+"").length < 2 ? "0" + str : str+"";
+}
+
+function onResize() {
+	var chart = $("chartContainer");
+	document.viewport.get
+}
+
+</script>
+</head>
+<body onload="main()">
+<img src="img/logo.jpg" width="128" height="28" align="absmiddle" />
+<img src="img/sublogo.jpg" width="148" height="17" align="absmiddle" />
+<table border="0" cellpadding="0" cellspacing="0" style="margin: 10px 0px 15px 0px;width:100%;"><tr>
+	<td style="width:150px;"><a href="#entrance"><img src="img/menubar_entrance.jpg" width="150" height="41" border="0"></a></td>
+	<td style="width:134px;"><a href="#heatmap"><img src="img/menubar_heatmap.jpg" width="134" height="41" border="0"></a></td>
+	<td style="width:auto; background: url(img/menubar_c.jpg) repeat-x;"><img src="img/menubar_l.jpg" width="1"/></td>
+	<td style="width:1px;"><img src="img/menubar_r.jpg" width="1"></td>
+	<td style="width:81px;"><a href="#setup"><img src="img/menubar_setup.jpg" width="81"></a></td>
+	<td style="width:1px;"><img src="img/menubar_r.jpg" width="1" border="0"></td>
+</tr></table>
+
+<div id="divEntrance" style="display:none;">
+	<div id="infobar">
+		<div class="Float">現在の時刻<span id="tiempo">00:00:00</span></div>
+		<div class="Float Right">現地の天気<span id="weather">晴れ</span></div>
+		<div class="Close"></div>
+	</div>
+	<div id="chartcontainer"></div>
+	<div id="charttext" onselectstart="return false;"></div>
+	<div id="charttable"></div>
+</div>
+
+<div id="divHeatmap" style="display:none;">
+	Heatmap
+</div>
+
+<div id="divSetup" style="display:none;">
+	Setup
+</div>
+</body>
+</html>

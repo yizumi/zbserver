@@ -1,16 +1,16 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width">
+<meta http-equiv="Content-Type" content="text/html; charset=utf8">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<script src="http://prototypejs.org/assets/2009/8/31/prototype.js"></script>
+<script src="/prototype.js"></script>
 <style type="text/css">
 <!--
 
 DIV#button1, DIV#button2, DIV#button3 {
 	x-position: absolute;
-	width: 50px;
-	height: 50px;
-	float: left;
+	width: 10px;
+	height: 10px;
 }
 
 .GreenOff { background-color: #003300; } 
@@ -20,38 +20,60 @@ DIV#button1, DIV#button2, DIV#button3 {
 .RedOff { background-color: #330000; } 
 .RedOn { background-color: Red; }
 
-DIV.Closure {
-	float: none;
-	clear: both;
-}
-
 // -->
 </style>
 </head>
 <body>
-<button onclick="m();">Start</button>
 <div>
-<div id="button3" class="RedOff">Red</div>
-<div id="button2" class="YellowOff">Yellow</div>
-<div id="button1" class="GreenOff">Green</div>
-<div class="Closure"></div>
-<div id="demo"></div>
-<div>Light1: <button onclick="sendText('000000000000ffff','L0H')">ON</button><button onclick="sendText('000000000000ffff','L0L')">OFF</button></div>
-<div>Light2: <button onclick="sendText('000000000000ffff','L1H')">ON</button><button onclick="sendText('000000000000ffff','L1L')">OFF</button></div>
-<div>Light3: <button onclick="sendText('000000000000ffff','L2H')">ON</button><button onclick="sendText('000000000000ffff','L2L')">OFF</button></div>
-<div>Light4: <button onclick="sendText('000000000000ffff','L3H')">ON</button><button onclick="sendText('000000000000ffff','L3L')">OFF</button></div>
-<button onclick="sendText('000000000000ffff','L2H')">Light 3</button>
+<h2>一般</h2>
+<button onclick="m();">モニター開始</button><button onclick="discover()">機器検索</button>
 </div>
+<hr>
 <div>
+<h2>スマートプラグ</h2>
+<div><div id="button1" class="GreenOff">  </div>電源１<button onclick="sendText('000000000000ffff','L0H')">ON</button><button onclick="sendText('000000000000ffff','L0L')">OFF</button></div>
+<div><div id="button2" class="YellowOff">  </div>電源２<button onclick="sendText('000000000000ffff','L1H')">ON</button><button onclick="sendText('000000000000ffff','L1L')">OFF</button></div>
+<div><div id="button3" class="RedOff">  </div>電源３<button onclick="sendText('000000000000ffff','L2H')">ON</button><button onclick="sendText('000000000000ffff','L2L')">OFF</button></div>
+</div>
+<hr>
+<div>
+<h2>Sharp LED</h2>
+<button onclick="sendRemoteLed('On');">On</button>
+<button onclick="sendRemoteLed('Off');">Off</button><br/>
+明るさ<button onclick="sendRemoteLed('AttUp');">+</button><button onclick="sendRemoteLed('AttDown');">-</button><br/>
+<button onclick="sendRemoteLed('AttMax');">全灯</button><button onclick="sendRemoteLed('AttHalf');">半灯</button><button onclick="sendRemoteLed('AttMin');">微灯</button><br/>
+色あい<button onclick="sendRemoteLed('ToneUp');">+</button><button onclick="sendRemoteLed('ToneDown');">-</button><br/>
+<button onclick="sendRemoteLed('ToneMax');">昼白色</button><button onclick="sendRemoteLed('ToneHalf');">中間色</button><button onclick="sendRemoteLed('ToneMin');">電球色</button>
+</div>
+<hr>
+<h2>DVDプレーヤー</h2>
+<button onclick="sendRemoteDVD('Play');">再生</button>
+<button onclick="sendRemoteDVD('Stop');">停止</button><br/>
+<button onclick="sendRemoteDVD('Prev');">&lt;&lt;</button>
+<button onclick="sendRemoteDVD('Pause');">一時停止</button>
+<button onclick="sendRemoteDVD('Next');">&gt;&gt;</button>
+<hr>
+<h2>モード</h2>
+映画鑑賞
+<button onclick="sendRemoteDVD('Play');setTimeout(function(){sendRemoteLed('AttMin');},500);">スタート</button>
+<button onclick="sendRemoteDVD('Stop');setTimeout(function(){sendRemoteLed('AttMax');},500);">ストップ</button>
+<hr>
 <h2>Remote Control</h2>
 Code Type: <input id="codeType" /><br/>
 Code Length: <input id="codeLength" /><br/>
 Code Value: <input id="codeValue" /><br/>
-<textarea id="codeRaw" style="width: 500px; height: 250px;"></textarea>
+<textarea id="codeRaw" style="width: 200px; height: 250px;"></textarea>
 <button onclick="sendRemoteSignal()">Send</button>
+<div id="demo"></div>
 </body>
 <script>
 var _lastMessageIndex = -1; // Request all messages up to this point
+
+function discover() {
+	new Ajax.Request( "/discover", {
+		method: "GET"
+	});
+}
 
 function sendText(addr,payload) {
 	new Ajax.Request("/send",{
@@ -80,6 +102,38 @@ function sendHex(addr,hex) {
 			payload : hex
 		}
 	});
+}
+
+var remoteSignalLED = {
+	"On" :      "0109411f0907160a061708012324565456572327232723272723545654545454565654545654545654532653232323232323232354282323232323232323232888278823272323232723232720",
+	"Off" :     "0107411e0a06161517012324232523252324232423242423242324242424232324242324242324232323232323232323232323242323232323232323232323242323262323232326232620",
+	"AttUp" :   "0109411f0907170a061608012324232423242324232423242423242324242424232324245657575327532323232323232323235324882324242323232323232323242328242323232323232320",
+	"AttDown" : "0109411e0a061607091708012324232423242324232423242423242567676767656567676567676567656523232325656565656567656565656765686565656565676565676565652424232460",
+	"ToneUp" :  "0107421e0b06160a09012324232423242324232423242423242354545454535354545354545354535353535353535353535354535453535353546363636353545353545353535453545350",
+	"ToneDown" :"0109421e0907170a061608012324232423242324562423572456572824242424232324242324242324232323232323232888882324232423242323242323288888248823242323232323242320",
+	"AttMax" :  "0109411e0a061607091708012324232423242324232425676765642567676767656567676567676567656565656523256565656567656565676765686565656565676565676565686564656760",
+	"AttHalf" : "0107421e0907170a08012324232423242324235423242423242324545454232354242324242324232323232323232666232323242323242423232323232666646623242323232423232420",
+	"AttMin" :  "0108411e0a0616070917012324232423242324232425642425642567676767656567676567676567656565656523232565656567676565676765652325656565676565676565656565232420",
+	"ToneMax" : "0109411e0907170a160608012324235657242324232423242423242824265656532324242324242324232323232357532323232324232423232423242323235323242323242323232424242320",
+	"ToneHalf" :"0108411e0a0616170907012324232423242325676567656563242765656565676765652324242324232323276767676767676723242423276567656767676767656767656767232767656760",
+	"ToneMin" : "0108421e0907170a1606012324235657565756575653265653265756565656575754242324242324232323232323575323232324242423232423242323232323242353242323232423242320"
+};
+
+function sendRemoteLed( command ) {
+	// alert( command );
+	sendHex( "000000000000ffff", remoteSignalLED[command] );
+}
+
+var remoteSignalDVD = {
+	"Play" :  "020020009928d7",
+	"Stop" :  "0200200099f00f",
+	"Next" :  "0200200099da25",
+	"Prev" :  "02002000997887",
+	"Pause" : "0200200099c837"
+};
+
+function sendRemoteDVD( command ) {
+	sendHex( "000000000000ffff", remoteSignalDVD[command] );
 }
 
 function m() {
@@ -133,20 +187,29 @@ function m() {
 									sendText( '000000000000ffff','L2H' );
 								}
 							}
-							else if( msg.raw_data.substr( 28, 8 ) == "009928d7" ) {
-									sendText( '000000000000ffff','L0L' );
-									sendText( '000000000000ffff','L1L' );
-									sendText( '000000000000ffff','L2L' );
+							// Play
+							else if( msg.raw_data.substr( 28, 8 ) == "009928d7" ) { 
+								window.setTimeout( function() {
+									sendRemoteLed( "AttMin" );
+								}, 1000 );
 							}
+							// Stop
 							else if( msg.raw_data.substr( 28, 8 ) == "0099f00f" ) {
-									sendText( '000000000000ffff','L0H' );
-									sendText( '000000000000ffff','L1H' );
-									sendText( '000000000000ffff','L2H' );
+							    // alert( "OH hi" );
+								window.setTimeout( function() {
+									sendRemoteLed( "AttMax" );
+								}, 1000 );
+								// sendText( '000000000000ffff','L0H' );
+								// sendText( '000000000000ffff','L1H' );
+								// sendText( '000000000000ffff','L2H' );
 							}
-							else if( msg.nodeInfo.deviceId == "PANDA:DEVICE:003" ) {
+							else if( msg.nodeInfo.deviceId.substring(0,16) == "PANDA:DEVICE:002" ) {
 								var type = msg.data.charCodeAt(0);
+									if( msg.raw_data.match( /2423331/ ) ) {
+									sendText( "000000000000ffff","L2H" );
+								}
 
-								if( type == 1 ) {
+								else if( type == 1 ) {
 									var hashLength = msg.data.charCodeAt(1);
 									var ticks = new Array();
 									var rawCodes = new Array();
@@ -157,8 +220,8 @@ function m() {
 									offset += hashLength;
 									for( var i = offset; i < msg.data.length; i++ ) {
 										// alert( ticks[msg.data.charCodeAt(i) >> 4] * 50 );
-										rawCodes.push( ticks[msg.data.charCodeAt(i) >> 4] * 50 + 100 ); // Upper Bit --> Space
-										rawCodes.push( ticks[msg.data.charCodeAt(i) & 0x0F] * 50 + 100 ); // Lower Bit --> Message
+										rawCodes.push( ticks[msg.data.charCodeAt(i) >> 4] * 50 ); // Upper Bit --> Space
+										rawCodes.push( ticks[msg.data.charCodeAt(i) & 0x0F] * 50 ); // Lower Bit --> Message
 									}
 
 									$("codeType").setValue( type );
@@ -213,7 +276,7 @@ function sendRemoteSignal()
 				alert( "Crap: " + durations[i] );
 				return;
 			}
-			var tick = Math.floor( (parseInt( RegExp.$1 ) - 100) / 50 );
+			var tick = Math.floor( (parseInt( RegExp.$1 )) / 50 );
 			var index = getIndexByTick( tickList, tick );
 			str += index.toString(16);
 		}
@@ -223,7 +286,7 @@ function sendRemoteSignal()
 			header += pad( tickList[i].toString(16) );
 		}
 
-		alert( header + str );
+		sendHex( "000000000000ffff", header + str );
 	}
 	else {
 		var length = parseInt( $("codeLength").getValue() );

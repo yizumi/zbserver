@@ -20,13 +20,21 @@
 #include <IRremote.h>
 #include <XBee.h>
 
-int RECV_PIN    = 12;
-int BUTTON_PIN  = 11;
 int STATUS_PIN  = 13;
+int RECV_PIN    = 12;
+
+int BUTTON1_PIN  = 11;
+int BUTTON2_PIN  = 10;
+int BUTTON3_PIN  = 9;
+
 int HASH_SIZE   = 16;
 int HASH_LENGTH = 0;
 
 byte HASH[16];
+
+int lastButtonState1;
+int lastButtonState2;
+int lastButtonState3;
 
 XBee xbee = XBee();
 XBeeAddress64 dest64 = XBeeAddress64( 0x00000000, 0x0000FFFF ); // Broadcast
@@ -41,7 +49,9 @@ void setup()
 {
   xbee.begin( 19200 );
   irrecv.enableIRIn(); // Start the receiver
-  pinMode(BUTTON_PIN, INPUT);
+  pinMode(BUTTON1_PIN, INPUT);
+  pinMode(BUTTON2_PIN, INPUT);
+  pinMode(BUTTON3_PIN, INPUT);
   pinMode(STATUS_PIN, OUTPUT);
 }
 
@@ -289,15 +299,43 @@ void sendCode(int repeat, int codeType, unsigned long codeValue, unsigned int ra
   }
 }
 
-int lastButtonState;
-
 void loop() {
   // If button pressed, send the code.
-  int buttonState = digitalRead(BUTTON_PIN);
+  int buttonState1 = digitalRead(BUTTON1_PIN);
+  int buttonState2 = digitalRead(BUTTON2_PIN);
+  int buttonState3 = digitalRead(BUTTON3_PIN);
   
-  if (lastButtonState == HIGH && buttonState == LOW) {
-    // Serial.println("Released");
-    irrecv.enableIRIn(); // Re-enable receiver
+  if (lastButtonState1 != buttonState1 ) {
+    lastButtonState1 = buttonState1;
+    uint8_t payload[3];
+    payload[0] = 'B';
+    payload[1] = '1';
+    payload[2] = buttonState1 ? '1' : '0';
+    Tx64Request zbKnownCode = Tx64Request( dest64, payload, sizeof( payload ) );
+    xbee.send( zbKnownCode );
+    return;
+  }
+
+  if (lastButtonState2 != buttonState2 ) {
+    lastButtonState2 = buttonState2;
+    uint8_t payload[3];
+    payload[0] = 'B';
+    payload[1] = '2';
+    payload[2] = buttonState2 ? '1' : '0';
+    Tx64Request zbKnownCode = Tx64Request( dest64, payload, sizeof( payload ) );
+    xbee.send( zbKnownCode );
+    return;
+  }
+
+  if (lastButtonState3 != buttonState3 ) {
+    lastButtonState3 = buttonState3;
+    uint8_t payload[3];
+    payload[0] = 'B';
+    payload[1] = '3';
+    payload[2] = buttonState3 ? '1' : '0';
+    Tx64Request zbKnownCode = Tx64Request( dest64, payload, sizeof( payload ) );
+    xbee.send( zbKnownCode );
+    return;
   }
 
   xbee.readPacket();
@@ -380,5 +418,4 @@ void loop() {
     irrecv.resume(); // resume receiver
     digitalWrite(STATUS_PIN, LOW);
   }
-  lastButtonState = buttonState;
 }

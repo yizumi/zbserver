@@ -21,10 +21,9 @@
 use warnings;
 use strict;
 
-use Gtk2 -init;
-use Gnome2::Canvas;
-use POE;
-use POE::Component::Server::TCP;
+# use Gtk2 -init;
+# use Gnome2::Canvas;
+use POE qw( Component::Server::TCP Filter::HTTPD);
 use JSON;
 use Date::Format qw( time2str );
 use Xbee::API;
@@ -35,6 +34,19 @@ my $HOME = "$FindBin::Bin";
 my $HOME_DH;
 opendir($HOME_DH, $HOME); 
 chdir $HOME_DH or die "Coule not change directory";
+
+my $MIME = {
+	"ico"   => "image/x-icon",
+	"html"  => "text/html",
+	"txt"   => "text/plain",
+	"png"   => "image/png",
+	"jpeg"  => "image/jpeg",
+	"jpg"   => "image/jpg",
+	"gif"   => "image/gif",
+	"css"   => "text/css",
+	"js"    => "application/x-javascript",
+	"manifest" => "text/cache-manifest"
+};
 
 sub initDisplay
 {
@@ -86,12 +98,12 @@ sub initDisplay
     Gtk2->main;
 }
 
-threads->new( \&initDisplay );
+# threads->new( \&initDisplay );
 
 use FindBin;
 use lib "$FindBin::Bin";
 use XBDB;
-use HttpRequest;
+use Digest::MD5 qw( md5 );
 
 $| = 1;			# Flush Output
 
@@ -104,15 +116,17 @@ my $LISTENING_PORT = 80; # Listening Port
 
 # Initialize Http (Port 80) Server
 POE::Component::Server::TCP->new(
-	Alias	=> "zserv",
-	Port	=> $LISTENING_PORT,
+	Alias			=> "dserv",
+	Port			=> $LISTENING_PORT,
+	ClientFilter	=> 'POE::Filter::HTTPD',
+
 	InlineStates => { 
 		send => sub {
             eval {
-                my( $heap, $session, $message, $disconnect ) = @_[HEAP, SESSION, ARG0, ARG1];
+                my( $heap, $session, $response, $disconnect ) = @_[HEAP, SESSION, ARG0, ARG1];
                 my $session_id = $session->ID;
-                logger( "DEBUG", "Client #$session_id: $message (Disconnect:" . ($disconnect?"Yes":"No") .")" );
-                $heap->{client}->put($message);
+                logger( "INFO", "Client #$session_id: (Disconnect:" . ($disconnect?"Yes":"No") .")" );
+                $heap->{client}->put($response);
                 if( $disconnect ) {
                     $_[KERNEL]->yield("shutdown");
                 }
@@ -123,83 +137,122 @@ POE::Component::Server::TCP->new(
             }
 		}
 	},
+
 	ClientConnected => sub {
 		my $session_id = $_[SESSION]->ID;
-		$clients{$session_id} = new HttpRequest($session_id);
+		$clients{$session_id} = { session_id => $session_id };
 		logger( "INFO", "Client#$session_id connected" );
 	},
+
 	ClientError => sub {
 		my $session_id = $_[SESSION]->ID;
 		delete $clients{$session_id};
 		logger( "ERROR", "Client#$session_id disconnected on ERROR" );
 	},
+
 	ClientDisconnected => sub {
 		my $session_id = $_[SESSION]->ID;
 		delete $clients{$session_id};
 		logger( "INFO", "Client#$session_id disconnected" );
 	},
+
 	ClientInput => sub {
         eval {
-            my( $kernel, $session, $input, $heap ) = @_[KERNEL, SESSION, ARG0, HEAP];
+            my( $kernel, $session, $request, $heap ) = @_[KERNEL, SESSION, ARG0, HEAP];
             
             my $session_id	= $session->ID;
             my $client		= $clients{$session_id};
 
-            logger( "DEBUG", "Client#$session_id sent $input" );
-            
-            # If the incoming message is something out of ordinary, appendHeader would return false.
-            if( !$client->appendHeader( $input ) ) {
-                $_[KERNEL]->yield("shutdown");
-                return;
-            }
+			# Filter::HTTPD sometimes generates HTTP::Response objects.
+			# They indicate (and contain the response for) error that occur
+			# while parsing the client's HTTP request.  It's easiest to send
+			# the responses as they are and finish up
+			if( $request->isa("HTTP::Response") ) {
+				logger( "INFO", "Some error" );
+				$heap->{client}->put( $request );
+				$kernel->yield( "shutdown" );
+				return;
+			}
 
-            # Continue on the incoming request is still coming in
-            return if( !$client->isReady() );
-            
-            if( $client->{mode} eq "publisher" ) {
-                logger( "DEBUG", "Client#$session_id is logged in as a publisher" );
-                broadcastAll( $session_id, $input ) unless $input eq "PUBLISHER";
-            }
-            elsif( $client->{mode} eq "subscriber" ) {
-                logger( "INFO", "Client#$session_id URI Request: " . $client->{uri} );
-                if( $client->{uri} eq "/" ) {
-                    logger( "Client#$session_id Sending welcome html" );
-                    POE::Kernel->post( $session_id => send => $client->getStaticContent("Welcome.html"), 1 );
-                }
-                elsif( $client->{uri} eq "/subscribe" ) {
-                    logger( "DEBUG", "Leaving the connection open..." );
-                    POE::Kernel->post( $session_id => send => $client->getSubsriptionHeader() );
-                    logger( "DEBUG", "Query String: ".$client->{queryString} );
-                    logger( "DEBUG", "Client#$session_id Last Message id: " . $client->{lastMessageIndex} );
-                    if( $client->{lastMessageIndex} == -1 ) {
-                        $client->{lastMessageIndex} = scalar(@messages) - 1;
-                    }
-                    sendInitMessage( $session_id );
-                }
-                elsif( $client->{uri} eq "/send" ) {
-                    logger( "DEBUG", "I got: " . $client->{queryString} );
-                    my( $type ) = $client->{queryString} =~ /type=([A-Z]+)/i;
-                    my( $dest64 ) = $client->{queryString} =~ /dest64=([0-9A-F]{16})/i;
-                    my( $payload ) = $client->{queryString} =~ /payload=([^&]+)/;
-                    $dest64 = pack( "H*", $dest64 );
-                    $payload = pack( "H*", $payload ) if uc($type) eq "HEX";
-                    logger( "INFO", "Sending '$payload' to '$dest64' (".length($dest64).")" );
-                    $xbee->transmit_request( $dest64, $payload);
-                    POE::Kernel->post( $session_id => send => $client->getStaticContent("DataSent.txt"), 1 );
-                }
-                elsif( $client->{uri} eq "/discover" ) {
-                    logger( "INFO", "Sending Node Discovery Command to get replies from end-nodes" );
-                    $xbee->at_command("ND");
-                }
-                elsif( -f "./htdocs/" . $client->{uri} ) {
-                    logger( "INFO", "Static file: " . $client->{uri} );
-                    POE::Kernel->post( $session_id => send => $client->getStaticContent($client->{uri}), 1 );
-                }
-                else {
-                    logger( "INFO", "I don't know what you're asking for" );
-                    $_[KERNEL]->yield("shutdown");
-                }
-            }
+			if( $request->uri eq "/" ) {
+				logger( "[#$session_id] Sending welcome html" );
+				my $response = HTTP::Response->new(200);
+				$response->push_header('Content-type', 'text/html');
+				$response->content( getStaticContent("Welcome.html") );
+				$heap->{client}->put( $response );
+				$kernel->yield( "shutdown" );
+				return;
+			}
+			elsif( $request->uri eq "/publish" ) {
+				
+				if( !exists $client->{publisher} )
+				{
+		            logger( "INFO", "[#$session_id] is logged in as a publisher" );
+					$client->{publisher} = 1;
+				}
+				elsif( $request->method eq "POST" && $request->header("Content-Length") * 1 > 0 )
+				{
+					logger( "INFO", "Broadcasting message: " . $request->content );
+			        broadcastAll( $session_id, $request->content );
+				}
+			}
+			elsif( $request->uri eq "/socket" ) {
+				logger( "INFO", "[#$session_id] Request:\n" . $request->as_string );
+
+				$client->{websocket} = 1;
+				my $srv = $request->header("origin") . $request->uri;
+				$srv =~ s/http/ws/;
+				my $response = HTTP::Response->new(101, "WebSocket Protocol Handshake" );
+				$response->push_header( "Upgrade", "WebSocket" );
+				$response->push_header( "Connection", "Upgrade" );
+				$response->push_header( "Sec-WebSocket-Origin", $request->header("origin") );
+				$response->push_header( "Sec-WebSocket-Location", $srv );
+				
+				my $key1 = $request->header("Sec-WebSocket-Key1");
+				my $key2 = $request->header("Sec-WebSocket-Key2");
+				my $key3 = $request->content;
+				
+				$response->content( getHandShakeKey( $key1, $key2, $key3 ) );
+
+				$heap->{client}->put( $response );
+
+				# keep the connection open
+				logger( "INFO", "Keep the connection open :)" );
+			}
+			elsif( $request->uri =~ m/\/(send|sendhex)\/([0-9A-F]{16})\/(.*)/i ) {
+				my( $type, $dest64, $payload ) = ( $1, $2, $3 );
+				logger( "INFO", "Sending '$payload' to '$dest64' (".length($dest64).")" );
+				$payload = pack( "H*", $payload ) if lc($type) eq "sendhex";
+				$dest64 = pack( "H*", $dest64 );
+				$xbee->transmit_request( $dest64, $payload);
+				
+				my $response = HTTP::Response->new(200);
+				$response->push_header('Content-type', 'text/html');
+				$response->content( getStaticContent("DataSent.html") );
+				$heap->{client}->put( $response );
+				$kernel->yield( "shutdown" );
+				return;
+			}
+			elsif( $request->uri eq "/discover" ) {
+				logger( "INFO", "Sending Node Discovery Command to get replies from end-nodes" );
+				$xbee->at_command("ND");
+			}
+			elsif( -f "./htdocs" . $request->uri ) {
+				logger( "INFO", "[#$session_id] Requested static file: " . $request->uri );
+				my $response = HTTP::Response->new(200);
+				my $file = $request->uri;
+				my( $ext ) = $file =~ /\.([A-Z0-9]+)$/i;
+				$response->push_header('Content-type', $MIME->{$ext} );
+				$response->content( getStaticContent( $request->uri ) );
+				$heap->{client}->put( $response );
+				$kernel->yield( "shutdown" );
+				return;
+			}
+			else {
+				logger( "INFO", "I don't know what you're asking for:\n" . $request->as_string );
+				$_[KERNEL]->yield("shutdown");
+			}
+		
         };
 
         if( $@ ) {
@@ -215,96 +268,70 @@ logger( "INFO", "Process started on port 80" );
 sub broadcastAll
 #---------------------------------------------
 {
-	my( $sender, $message ) = @_;
-    my $msg = from_json( $message );
-    $msg->{messageId} = scalar(@messages);
-    $msg->{sendTime} = time2str( "%Y-%m-%dT%H:%M:%SZ%Z", time() );
-    push( @messages, $msg );
-	broadcast( $sender );
-}
-
-#---------------------------------------------
-sub broadcast
-#---------------------------------------------
-{
-    my( $sender ) = @_;
-
-	my $count_send = 0;
+	my( $sender, $response ) = @_;
 
 	foreach my $user (keys %clients ) {
-		next if defined $sender && $user == $sender;
+		next if (defined $sender && $user == $sender);
 		my $client = $clients{$user};
-		next if $client->{mode} ne "subscriber"; # Keep subscribers connected
-        $count_send += sendUnpublished( $client );
-
-		#if( $client->isReady() ) {
-		#	if( ($client->{lastMessageIndex} + 1 ) < scalar(@messages) ) {
-        #       my $array_to_send = ();
-        #       my $endIndex = scalar( @messages ) - 1; # Calculate end index first
-        #       my $startIndex = exists $client->{lastMessageIndex} ? $client->{lastMessageIndex} + 1 : $endIndex;
-        #       # logger( "INFO", "Start Index: $startIndex" );
-        #       # logger( "INFO", "End Index: $endIndex" );                
-        #       # logger( "INFO", ($startIndex..$endIndex) );
-        #       grep { push @$array_to_send, $messages[$_] } ($startIndex..$endIndex);
-        #       my $message = to_json($array_to_send);
-        #       logger( "INFO", "Sending messages $startIndex through $endIndex to Client#$user\n=====\n$message\n=====" );
-        #       $client->{lastMessageIndex} = scalar(@messages);
-        #       $client->{state} = "DISCONNECT";
-        #       POE::Kernel->post($user => send => $message, 1 );
-        #       $count_send++;
-        #   }
-		#}
+		next if exists $client->{publisher};
+		next if !exists $client->{websocket};
+		my $respobj = {
+			raw_message => 1,
+			message => "\x00".$response."\xFF"
+		};
+		POE::Kernel->post($user => send => $respobj );
 	}
+}
 
-	logger( "INFO", $count_send ? "Sent to $count_send clients" : "No one is connected" );
+my $path = "./htdocs";
+
+#---------------------------------------------
+sub getStaticContent
+#---------------------------------------------
+{
+	my( $file ) = @_;
+	my( $ext ) = $file =~ /\.([A-Z0-9]+)$/i;
+	my $size = -s "$path/$file";
+	
+	open FH, "< $path/$file";
+	my $data = "";
+	while( <FH> ) {
+		$data .= $_;
+	}
+	close FH;
+	return $data;
 }
 
 #---------------------------------------------
-sub sendInitMessage
+# Generates a handshake key according to draft 76
 #---------------------------------------------
-# Send Unpublished Messages on startup -- disconnect if there is any
+sub getHandShakeKey
 {
-	my( $client_id ) = @_;
-	# Assumes this is a subscriber
-	my $client = $clients{$client_id};
-    my $count_send = sendUnpublished( $client );
-    logger( "INFO", $count_send ? "Sent to $count_send clients" : "No one is connected" );
-	return $count_send;
+	my( $key1, $key2, $key3 ) = @_;
+	
+	my $numkey1 = $key1; $numkey1 =~ s/[^\d]//g; $numkey1 *= 1;
+	my $numkey2 = $key2; $numkey2 =~ s/[^\d]//g; $numkey2 *= 1;
+	my $spaces1 = $key1; $spaces1 =~ s/[^\ ]//g; $spaces1 = length( $spaces1 );
+	my $spaces2 = $key2; $spaces2 =~ s/[^\ ]//g; $spaces2 = length( $spaces2 );
+	my $num1 = pack( "N", $numkey1 / $spaces1 );
+	my $num2 = pack( "N", $numkey2 / $spaces2 );
+	my $key = md5( $num1, $num2, $key3 );
+
+	logger( "DEBUG", join "\n",
+		"key1: $key1",
+		"key2: $key2",
+		"key3: $key3",
+		"numkey1: $numkey1",
+		"numkey2: $numkey2",
+		"spaces1: $spaces1",
+		"spaces2: $spaces2",
+		"int1: $num1",
+		"int2: $num2",
+		"key: $key"
+	);
+
+	return $key;
 }
-
-sub sendUnpublished
-{
-    lock( $locked );
-    logger( "INFO", "+++ Locked..." );
-    my( $client ) = @_;
-    my $count_send = 0;
-    my $msg_count = scalar(@messages);
-
-    if( $client->isReady() ) {
-        if( ($client->{lastMessageIndex} + 1 ) < $msg_count ) {
-            # Find out what this user is missing
-            my $array_to_send = ();
-            my $endIndex = $msg_count - 1; # Calculate end index first
-            my $startIndex = exists $client->{lastMessageIndex} ? $client->{lastMessageIndex} + 1 : $endIndex;
-            # logger( "INFO", "Start Index: $startIndex" );
-            # logger( "INFO", "End Index: $endIndex" );
-            # logger( "INFO", ($startIndex..$endIndex) );
-            grep { push @$array_to_send, $messages[$_] } ($startIndex..$endIndex);
-            my $message = to_json($array_to_send);
-            logger( "DEBUG", "Sending messages $startIndex through $endIndex to Client#$client->{client_id}\n=====\n$message\n=====" );
-            $client->{lastMessageIndex} = $msg_count;
-            $client->{state} = "DISCONNECT";
-            POE::Kernel->post($client->{client_id} => send => $message, 1 );
-            $count_send++;
-        }
-        else {
-            logger( "INFO", "Client#$client->{client_id} is waiting for messageId > $client->{lastMessageIndex} (Current: $msg_count)" ) ;
-        }
-    }
-    logger( "INFO", "+++ Unlocked" );
-    return $count_send;
-}
-
 
 my %LOGLEVEL = ( 
     "DEBUG"     => 0, 
@@ -368,6 +395,8 @@ sub enrichNodeData
 # Create
 $xbee = Xbee::API->new( { port => '/dev/ttyUSB0', debug => 0, speed => 19200 } );
 
+use HTTP::Request;
+
 threads->new(sub {
 	
 	logger( "INFO", "Initializing database" );
@@ -385,11 +414,14 @@ threads->new(sub {
 
 	logger( "INFO", "Connected to port $LISTENING_PORT" );
 	logger( "INFO", "Setting connection type to PUBLISHER" );
-	print $remote "PUBLISHER\n";
+	print $remote "GET /publish HTTP/1.1\r\n\r\n";
 
 	logger( "INFO", "Sending Node Discovery Command to get replies from end-nodes" );
 	$xbee->at_command("ND");
     # $xbee->transmit_request( "\x0013A200406292D4", "L0H" );
+
+	my $http_request = HTTP::Request->new("POST", "/publish");
+
 
 	while (1) {
 		my $frame = $xbee->read_api;
@@ -402,10 +434,12 @@ threads->new(sub {
 				# Now ... let subscribers be aware of this change!
 				$frame->{type} = "RxResponse";
                 enrichNodeData( $frame, $xbdb );
-				my $msg = to_json( $frame ) . "\n";
-				logger( "INFO", "Sending: $msg" );
+				my $msg = to_json( $frame ) . "\r\n";
+				$http_request->content( $msg );
+				$http_request->header( "Content-Length" => length( $msg ) );
+				# logger( "INFO", "Sent: " . $http_request->as_string );
+				print $remote $http_request->as_string;
                 # delete $frame->{raw_data};
-				print $remote $msg;
 
 				if( $frame->{data} =~ /CS[HL]+/ ) {
 					$xbdb->setCurrentState( $frame->{serial}, $frame->{data} );
