@@ -1,0 +1,66 @@
+DIV,SPAN,A,P {
+	font-family: ÉÅÉCÉäÉI;
+	color: #333;
+	font-size: 10pt;
+	line-height: 150% !important;
+}
+
+#chartcontainer {
+	width: 750px;
+	background: -moz-linear-gradient(top, #fff, #eee);
+	background: -webkit-gradient(linear, left top, left bottom, from(#fff), to(#eee));
+	border: 1px solid #CCC;
+	margin: auto;
+}
+
+#charttext {
+	margin: auto;
+	width: 750px;
+}
+
+#infobar {
+	margin: 0px auto 15px auto;
+	width: 750px;
+}
+
+#weather {
+	margin-left: 10px;
+	color: #00c;
+	font-size: 12pt;
+	font-weight: bold;
+}
+
+#tiempo {
+	margin-left: 10px;
+	color: #00c;
+	font-size: 12pt;
+	font-weight: bold;
+}
+
+DIV.Title {
+	font-size: 12pt;
+	position: relative;
+	top: -325px;
+	left: 328px;
+	font-weight: bold;
+}
+
+DIV.TitleY {
+	font-size: 9pt;
+	color: #999;
+	position: relative;
+	top: -275px;
+	left: 5px;
+}
+
+DIV.TitleX {
+	font-size: 9pt; 
+	top: -36px;
+	left: 362px;
+	color: #999;
+	position: relative;
+}
+
+DIV.Float { float: left; }
+DIV.Right { float: Right; }
+DIV.Close { float: none; clear: both; }
