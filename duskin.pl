@@ -48,58 +48,6 @@ my $MIME = {
 	"manifest" => "text/cache-manifest"
 };
 
-sub initDisplay
-{
-    Gtk2::Rc->add_default_file( "/usr/local/share/themes/Clearlooks-DarkOrange/gtk-2.0/gtkrc" );
-    my %screen_size = ( "w" => 480, "h" => 272);
-
-    my $bgColor = Gtk2::Gdk::Color->new (0xFFFF,0xFFFF,0xFFFF);
-
-    my $window = Gtk2::Window->new("toplevel");
-    $window->modify_bg( "normal", $bgColor );
-
-
-    my $fixed = Gtk2::Fixed->new();
-    $window->add( $fixed );
-    $fixed->modify_bg( "normal", $bgColor );
-
-    # my $button = Gtk2::Button->new("Quit");
-    # $button->signal_connect( clicked => sub { Gtk2->main_quit } );
-    # $fixed->put( $button, 180, 120 );
-
-    my $image = Gtk2::Image->new_from_file( "/home/yizumi/bin/res/duskin256.png" );
-    $window->set_default_size( $screen_size{"w"}, $screen_size{"h"} );
-    $fixed->put( $image, ($screen_size{"w"}/2) - (280/2), 80 );
-
-    my $progressBar = Gtk2::ProgressBar->new();
-    $progressBar->set_size_request( 120, 20 );
-    $progressBar->set_text( "Loading" );
-    $fixed->put( $progressBar, ($screen_size{"w"}/2) - (120/2), 240 );
-
-    $window->show_all;
-
-    my $p = 0;
-
-    Glib::Timeout->add( 100, sub {
-        $p += 5;
-        $progressBar->set_fraction( $p / 100 );
-        if( $p + 5 <= 100 ) {
-            return 1;
-        }
-        else {
-            print( "Done\n" );
-            my $ipaddr_str = `ifconfig | grep 'inet addr'`;
-            my( $ipaddr ) = $ipaddr_str =~ /([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)/;
-            $progressBar->set_text(  $ipaddr );
-            return 0;
-        }
-    } );
-
-    Gtk2->main;
-}
-
-# threads->new( \&initDisplay );
-
 use FindBin;
 use lib "$FindBin::Bin";
 use XBDB;
@@ -113,6 +61,8 @@ my $xbee;		    # Handler to XBee Module
 my $locked:shared;  # Mutext Lock Object
 
 my $LISTENING_PORT = 80; # Listening Port
+
+my $xbdb = new XBDB( "localhost", "xbdb", "xbdb", "_xbdb" );
 
 # Initialize Http (Port 80) Server
 POE::Component::Server::TCP->new(
@@ -184,13 +134,13 @@ POE::Component::Server::TCP->new(
 				return;
 			}
 			elsif( $request->uri eq "/publish" ) {
-				
 				if( !exists $client->{publisher} )
 				{
 		            logger( "INFO", "[#$session_id] is logged in as a publisher" );
 					$client->{publisher} = 1;
 				}
-				elsif( $request->method eq "POST" && $request->header("Content-Length") * 1 > 0 )
+
+				if( $request->method eq "POST" && $request->header("Content-Length") * 1 > 0 )
 				{
 					logger( "INFO", "Broadcasting message: " . $request->content );
 			        broadcastAll( $session_id, $request->content );
@@ -218,6 +168,28 @@ POE::Component::Server::TCP->new(
 
 				# keep the connection open
 				logger( "INFO", "Keep the connection open :)" );
+			}
+			elsif( $request->uri =~ m/\/query\/([A-Za-z0-9]+)\/(.*)/i ) {
+				my( $table, $where ) = ( $1, $2 );
+				$table =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+				$where =~ s/\%([A-Fa-f0-9]{2})/pack('C', hex($1))/seg;
+				my @data = ();
+				my $query = "SELECT resTime FROM $table WHERE $where";
+				logger( $query );
+				$xbdb->execQuery( $query )->each(sub{
+					my( $row ) = @_;
+					push @data, $row->{resTime};
+					# logger( "Count: " . scalar( @data ) );
+				});
+				my $response = HTTP::Response->new(200);
+				logger( "Found " . scalar( @data ) . " items" );
+				my $msg = to_json( \@data );
+				$response->push_header("Content-type","application/json");
+				$response->push_header("Content-length", length( $msg ) );
+				$response->content( $msg );
+				$heap->{client}->put( $response );
+				$kernel->yield("shutdown");
+				return;
 			}
 			elsif( $request->uri =~ m/\/(send|sendhex)\/([0-9A-F]{16})\/(.*)/i ) {
 				my( $type, $dest64, $payload ) = ( $1, $2, $3 );
@@ -351,7 +323,7 @@ sub logger
 		$filename = $1;
 	}
 
-	my $time = time2str( "%Y/%m/%d %H:%M:%S %Z", time() );
+	my $time = time2str( "%Y/%m/%d %H:%M:%S %z", time() );
 
 	if( $_[0] eq "DEBUG" ) {
         return;
@@ -390,6 +362,7 @@ sub enrichNodeData
         my( $hash ) = @_;
         $frame->{nodeInfo} = $hash;
     });
+	$frame->{serverRecpTime} = time2str( "%Y-%m-%dT%H:%M:%SZ%z", time() );
 }
 
 # Create
@@ -421,7 +394,6 @@ threads->new(sub {
     # $xbee->transmit_request( "\x0013A200406292D4", "L0H" );
 
 	my $http_request = HTTP::Request->new("POST", "/publish");
-
 
 	while (1) {
 		my $frame = $xbee->read_api;
