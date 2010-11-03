@@ -1,4 +1,4 @@
-DIV,SPAN,A,P {
+DIV,SPAN,A,P,TD,LABEL {
 	font-family: ÉÅÉCÉäÉI;
 	color: #333;
 	font-size: 10pt;
@@ -64,3 +64,12 @@ DIV.TitleX {
 DIV.Float { float: left; }
 DIV.Right { float: Right; }
 DIV.Close { float: none; clear: both; }
+
+#gridcontainer { margin: auto; width: 750px; }
+
+.grid-table { width: 100%; border-collapse: collapse; }
+.grid-data-cell { border-width: 1px 0px 1px 0px; border-color: #95B3D7; border-style: Solid; padding: 2px; text-align: right;}
+.grid-header-cell { border-top: 1px double Gray; background-color: #4F81BD; color: White; text-align: center;}
+.grid-data-segment,.grid-data-count,.grid-data-countPrev { width: 100px; }
+.grid-data-alt { background-color: #DCE6F1; }
+.grid-data-segment { text-align: center; }

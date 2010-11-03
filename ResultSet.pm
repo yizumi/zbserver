@@ -32,11 +32,13 @@
 	{
 		my( $self, $cb ) = @_;
 		my $obj;
-		my $rc = 1;
+		my $cont = { stop => 0 };
+		my $rc;
 
-		while( $rc == 1 && ($obj = $self->{stmt}->fetchrow_hashref) ) {
-			$rc = $cb->( $obj );
+		while( $cont->{stop} == 0 && ($obj = $self->{stmt}->fetchrow_hashref) ) {
+			$rc = $cb->( $obj, $cont );
 		}
+		return $rc;
 	}
 }
 

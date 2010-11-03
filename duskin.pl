@@ -29,6 +29,7 @@ use Date::Format qw( time2str );
 use Xbee::API;
 use threads;
 use FindBin;
+use LWP::UserAgent;
 
 my $HOME = "$FindBin::Bin";
 my $HOME_DH;
@@ -45,7 +46,8 @@ my $MIME = {
 	"gif"   => "image/gif",
 	"css"   => "text/css",
 	"js"    => "application/x-javascript",
-	"manifest" => "text/cache-manifest"
+	"manifest" => "text/cache-manifest",
+	"mp3"   => "audio/mpeg"
 };
 
 use FindBin;
@@ -176,13 +178,14 @@ POE::Component::Server::TCP->new(
 				my @data = ();
 				my $query = "SELECT resTime FROM $table WHERE $where";
 				logger( $query );
+				my $realCount = 0;
 				$xbdb->execQuery( $query )->each(sub{
 					my( $row ) = @_;
 					push @data, $row->{resTime};
-					# logger( "Count: " . scalar( @data ) );
+					$realCount++;
 				});
 				my $response = HTTP::Response->new(200);
-				logger( "Found " . scalar( @data ) . " items" );
+				logger( "Found $realCount items" );
 				my $msg = to_json( \@data );
 				$response->push_header("Content-type","application/json");
 				$response->push_header("Content-length", length( $msg ) );
@@ -216,6 +219,16 @@ POE::Component::Server::TCP->new(
 				my( $ext ) = $file =~ /\.([A-Z0-9]+)$/i;
 				$response->push_header('Content-type', $MIME->{$ext} );
 				$response->content( getStaticContent( $request->uri ) );
+				$heap->{client}->put( $response );
+				$kernel->yield( "shutdown" );
+				return;
+			}
+			elsif( $request->uri =~ m/\/mail\/(.*)/i ) {
+				my $recipient = $1;
+				my $resText = sendmail( $recipient );
+				my $response = HTTP::Response->new(200);
+				$response->push_header('Content-type', 'text/html');
+				$response->content( $resText );
 				$heap->{client}->put( $response );
 				$kernel->yield( "shutdown" );
 				return;
@@ -272,6 +285,28 @@ sub getStaticContent
 	}
 	close FH;
 	return $data;
+}
+
+#---------------------------------------------
+sub sendmail
+#---------------------------------------------
+{
+	my( $recipient ) = @_;
+	my $ua = LWP::UserAgent->new;
+	$ua->timeout(10);
+	$ua->env_proxy;
+	my $url = "http://ripplesystem.appspot.com/test?recipient=$recipient";
+
+	logger( "INFO", "Requested: $url" );
+
+	my $response = $ua->get( $url );
+
+	if ($response->is_success) {
+		return $response->decoded_content;  # or whatever
+	}
+	else {
+		return "Timeout";
+	}
 }
 
 #---------------------------------------------

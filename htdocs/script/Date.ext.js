@@ -26,9 +26,14 @@ Date.prototype.resetMinute = function() {
 }
 
 Date.parseJSON = function( s ) {
-	if( s.match( /(\d{4})-0?(\d|\d\d)-0?(\d|\d\d)T0?(\d|\d\d):0?(\d|\d\d):0?(\d|\d\d)Z([\+\-])0?(\d+)/ ) ) {
+	if( s.match( /(\d{4})-0?(\d|\d\d)-0?(\d|\d\d)T0?(\d|\d\d):0?(\d|\d\d):0?(\d|\d\d)Z([\+\-])0?(\d+)/ ) )
 		return new Date(RegExp.$1*1,RegExp.$2*1-1,RegExp.$3*1,RegExp.$4*1,RegExp.$5*1,RegExp.$6*1,0);
-	}
+	return null;
+}
+
+Date.parseSimple = function( s ) {
+	if( s.match( /(\d{4})-0?(\d|\d\d)-0?(\d|\d\d) 0?(\d|\d\d):0?(\d|\d\d):0?(\d|\d\d)/ ) )
+		return new Date(RegExp.$1*1,RegExp.$2*1-1,RegExp.$3*1,RegExp.$4*1,RegExp.$5*1,RegExp.$6*1,0);
 	return null;
 }
 

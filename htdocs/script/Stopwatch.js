@@ -12,6 +12,7 @@ var Stopwatch = Class.create({
 		if( doAlert ) {
 			this.alert();
 		}
+		return this.toString();
 	},
 	getDiff : function() {
 		return this.endTime - this.startTime;

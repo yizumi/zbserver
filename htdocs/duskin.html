@@ -10,6 +10,8 @@
 <script type="text/javascript" src="script/Stopwatch.js"></script>
 <script type="text/javascript" src="script/Loop.js"></script>
 <script type="text/javascript" src="script/Date.ext.js"></script>
+<script type="text/javascript" src="script/Yahoo.js"></script>
+<script type="text/javascript" src="script/Animation.js"></script>
 <script type="text/javascript" src="script/Ripple.js"></script>
 <script type="text/javascript" src="duskin.js"></script>
 </head>
@@ -19,6 +21,7 @@
 <table border="0" cellpadding="0" cellspacing="0" style="margin: 10px 0px 15px 0px;width:100%;"><tr>
 	<td style="width:150px;"><a href="#entrance"><img src="img/menubar_entrance.jpg" width="150" height="41" border="0"></a></td>
 	<td style="width:134px;"><a href="#heatmap"><img src="img/menubar_heatmap.jpg" width="134" height="41" border="0"></a></td>
+	<td style="width:129px;"><a href="#security"><img src="img/menubar_security.jpg" width="129" height="41" border="0"></a></td>
 	<td style="width:auto; background: url(img/menubar_c.jpg) repeat-x;"><img src="img/menubar_l.jpg" width="1"/></td>
 	<td style="width:1px;"><img src="img/menubar_r.jpg" width="1"></td>
 	<td style="width:81px;"><a href="#setup"><img src="img/menubar_setup.jpg" width="81"></a></td>
@@ -34,15 +37,29 @@
 	</div>
 	<div id="chartcontainer"></div>
 	<div id="charttext" onselectstart="return false;"></div>
-	<div id="charttable"></div>
+	<div id="gridcontainer"></div>
 </div>
 <!-- Heatmap -->
 <div id="divHeatmap" style="display:none;">
 	Heatmap
 </div>
+<!-- Security -->
+<div id="divSecurity" style="display:none;">
+	<div id="dialogSecurity" style="width:800px;background-color:#ffc;text-align:center;padding:20px;border:1px solid Gray;margin:auto;">
+		<input type="checkbox" id="enableAlert" value="domail" /><label for="enableAlert">マットが踏まれたら警告メールを送信する</label><br/>
+		送信先メールアドレス: <input type="textbox" id="mailAddress" value="panda.4126@i.softbank.jp" />
+
+	</div>
+</div>
 <!-- Setup -->
 <div id="divSetup" style="display:none;">
-	Setup
+	<div id="dialogSound" style="width:800px;background-color:#ffc;text-align:center;padding:20px;border:1px solid Gray; margin:auto;">
+		<input type="checkbox" id="enabledSound" value="dosound" /><label for="enabledSound">マットが踏まれたら音で知らせる</label></br>
+		<audio id="sound1" src="http://www10225u.sakura.ne.jp/yizumi/sound1.mp3" autobuffer />
+		<audio id="sound2" src="http://www10225u.sakura.ne.jp/yizumi/sound2.mp3" autobuffer />
+		<audio id="sound3" src="http://www10225u.sakura.ne.jp/yizumi/sound3.mp3" autobuffer />
+		<audio id="open1" src="http://www10225u.sakura.ne.jp/yizumi/open.mp3" autobuffer />
+	</div>
 </div>
 </body>
 </html>

@@ -25,6 +25,7 @@ var HistogramDataReader = Class.create({
 			case "second": getIdx = function(t1){return Math.floor((t1-t0)/1000); }; break;
 		}
 
+		// initialize the array by iterating time segments, and set 0 as the count value
 		var totals = new Array();
 		for( var i = 0; i < getIdx( endDate.getTime() ); i++ ) {
 			totals.push(0);
