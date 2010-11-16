@@ -150,7 +150,7 @@
 			return 0;
 		}
 
-		my $hash = md5( $
+		# my $hash = md5( $
 	}
 
 

@@ -40,7 +40,6 @@ Element.observe(window,"load",function(){
 	});
 } );
 
-
 var initComponents = function( initData ) {
 	// Generate sample Data
 	var hdr = new HistogramDataReader( initData );
@@ -248,9 +247,9 @@ var initComponents = function( initData ) {
 				refreshData();
 				if( $("enabledSound").checked ) {
 					switch(button) {
-						case 1: $("sound1").play(); break;
+						case 1: $("sound3").play(); break;
 						case 2: $("sound2").play(); break;
-						case 3: $("sound3").play(); break;
+						case 3: $("sound1").play(); break;
 					}
 				}
 				if( $("enableAlert").checked ) {
@@ -271,6 +270,20 @@ var initComponents = function( initData ) {
 							myAnim.animate();
 						}
 					} );
+				}
+				if( $("enabledLight").checked ) {
+					var cx = $F("lightCx");
+					new Ajax.Request( "/send/000000000000ffff/L" + cx + "H", {
+						onSuccess : function( resp ) {
+						}
+					} );
+					
+					setTimeout( function(){
+						new Ajax.Request( "/send/000000000000ffff/L" + cx + "L", {
+							onSuccess : function( resp ) {
+							}
+						} );
+					}, parseInt( $F("lightDuration")*1000 ) );
 				}
 			}
 		}
