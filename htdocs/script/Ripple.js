@@ -8,11 +8,15 @@
 var Ripple = Class.create({
 
 	connected : false,
+	websocket : null,
+	failCount : 0,
 
 	/**
+	 * @server : the server to call websocket
 	 * @config An object containing event call-back method and configuration paramters.
-	 *			onMessage : function Receives an object that typically contains node information and the data.
-	 *						Example:
+	 *			onOpen() : function invoked when connection is established
+	 *			onMessage(obj) : function invoked when the a message object is published
+	 *						a typical message object looks like:
 	 *						{
 								"options":2,
 								"nodeInfo": {
@@ -37,7 +41,8 @@ var Ripple = Class.create({
 							If you don't receive nodeInfo, the chance is that the end device was not turned
 							on when the server side program did the initial network node scan.  You can manually
 							invoke discover and allow end device to send the message.
-	 *			server : use server
+				onClose(failCount,retryInterval) : function invoked when connection is closed.  You can return "false" if you don't want to retry
+				onGiveUp() : function invoked when connection cannot be established within retryMax attempts
 	 */
 	initialize : function( server, config ) {
 		this.server = server;
@@ -50,25 +55,40 @@ var Ripple = Class.create({
 	start : function() {
 		if( "WebSocket" in window )
 		{
-			this.ws = new WebSocket("ws://"+this.server+"/socket");
-			var self = this;
-			this.ws.onopen = function() {
-				self.connected = true;
-			};
-
-			this.ws.onmessage = function(evt) {
-				self.config.onMessage( evt.data.evalJSON() );
-			};
-
-			this.ws.onclose = function() {
-				self.ws = null;
-				self.connected = false;
-			}
+			this.createSocket();
 		}
 		else
 		{
 			alert( "WebSocket NOT supported here!\r\n\r\nBrowser: " + 
 				navigator.appName + " " + navigator.appVersion );
+		}
+	},
+	
+	createSocket : function() {
+		var self = this;
+		if( self.websocket == null )
+		{
+			self.websocket = new WebSocket("ws://"+self.server+"/socket");
+			self.websocket.onopen = function() {
+				self.failCount = 0; // reset the fail count on open
+				self.config.onOpen();
+			};
+			self.websocket.onmessage = function(evt) {
+				self.config.onMessage( evt.data.evalJSON() );
+			};
+			self.websocket.onclose = function() {
+				self.websocket = null;
+				var interval = self.getRetryInterval();
+				var rc = self.config.onClose( self.failCount, interval );
+				if( rc !== false )
+				{
+					// setting timeout
+					setTimeout(function(){
+						self.createSocket();
+					}, interval * 1000 );
+					self.failCount++;
+				}
+			};
 		}
 	},
 	
@@ -142,5 +162,11 @@ var Ripple = Class.create({
 		else {
 			// alert( str );
 		}
+	},
+
+	getRetryInterval : function()
+	{
+		// double the interval each time until it hits 30 seconds
+		return Math.min( 30, Math.pow( 2, this.failCount ) );
 	}
 });

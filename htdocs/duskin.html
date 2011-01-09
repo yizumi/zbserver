@@ -16,8 +16,15 @@
 <script type="text/javascript" src="duskin.js"></script>
 </head>
 <body>
-<img src="img/logo.jpg" width="128" height="28" align="absmiddle" />
-<img src="img/sublogo.jpg" width="192" height="17" align="absmiddle" />
+<div>
+	<div class="Float">
+		<img src="img/logo.jpg" width="128" height="28" align="absmiddle" />
+		<img src="img/sublogo.jpg" width="192" height="17" align="absmiddle" />
+	</div>
+	<div class="Float Right"><button id="reconnect">再接続</button>
+	</div>
+	<div class="Close"></div>
+</div>
 <table border="0" cellpadding="0" cellspacing="0" style="margin: 10px 0px 15px 0px;width:100%;"><tr>
 	<td style="width:150px;"><a href="#entrance"><img src="img/menubar_entrance.jpg" width="150" height="41" border="0"></a></td>
 	<td style="width:134px;"><a href="#heatmap"><img src="img/menubar_heatmap.jpg" width="134" height="41" border="0"></a></td>
@@ -32,7 +39,7 @@
 	<div id="infobar">
 		<div class="Float">現在の時刻<span id="tiempo">00:00:00</span></div>
 		<div class="Float" style="width:auto;text-align:center;"><select id="timeSlice"></select></div>
-		<div class="Float Right">現地の天気<span id="weather">晴れ</span></div>
+		<div class="Float Right">電波: <span id="rssi">0</span> / 現地の天気<span id="weather">晴れ</span></div>
 		<div class="Close"></div>
 	</div>
 	<div id="chartcontainer"></div>
@@ -54,10 +61,10 @@
 <div id="divSetup" style="display:none;">
 	<div id="dialogSound" style="width:800px;background-color:#ffc;text-align:center;padding:20px;border:1px solid Gray; margin:auto;">
 		<input type="checkbox" id="enabledSound" value="dosound" /><label for="enabledSound">音で知らせる</label></br>
-		<audio id="sound1" src="http://www10225u.sakura.ne.jp/yizumi/sound1.mp3" autobuffer />
-		<audio id="sound2" src="http://www10225u.sakura.ne.jp/yizumi/sound2.mp3" autobuffer />
-		<audio id="sound3" src="http://www10225u.sakura.ne.jp/yizumi/sound3.mp3" autobuffer />
-		<audio id="open1" src="http://www10225u.sakura.ne.jp/yizumi/open.mp3" autobuffer />
+		<audio id="sound1" src="http://yizumi.ripplesystem.com/media/sound1.mp3" preload="auto" autobuffer />
+		<audio id="sound2" src="http://yizumi.ripplesystem.com/media/sound2.mp3" preload="auto" autobuffer />
+		<audio id="sound3" src="http://yizumi.ripplesystem.com/media/sound3.mp3" preload="auto" autobuffer />
+		<audio id="open1" src="http://yizumi.ripplesystem.com/media/open.mp3" preload="auto" autobuffer />
 	</div>
 	<div id="dialogLight" style="width:800px;background-color:#ffc;text-align:center;padding:20px;border:1px solid Gray; margin:auto; margin-top:20px;">
 		<input type="checkbox" id="enabledLight" value="dolight" /><label for="enabledLight">照明を点灯させる</label><br/>

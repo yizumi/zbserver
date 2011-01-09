@@ -18,9 +18,21 @@ function onResize() {
 	var chart = $("chartContainer");
 }
 
+function getSignalStrength( rssi )
+{
+	if( rssi < 50 )
+		return "強";
+	if( rssi < 70 )
+		return "中";
+	if( rssi < 90 )
+		return "小";
+	return "微弱";
+}
+
 Element.observe(window,"load",function(){
 	//new Ajax.Request("/data.txt", {
-	new Ajax.Request("/query/RxResponse/resTime>'2010/10/1' and data like 'B%1'", {
+	var d = new Date();
+	new Ajax.Request("/query/RxResponse/resTime>'"+d.getFullYear()+"/"+(d.getMonth()+1)+"/1' and data like 'B%1'", {
 		method : "GET",
 		onSuccess : function( resp ) {
 			try {
@@ -233,58 +245,64 @@ var initComponents = function( initData ) {
 	}, 1000 );
 
 	// Start the communication with the Ripple server
-	var ripple = new Ripple("192.168.1.14",{
+	var ripple = new Ripple("192.168.1.15",{
 		onMessage : function( msg ) {
-			if( msg.nodeInfo.deviceId == "PANDA:DEVICE:002" ||
-				msg.nodeInfo.deviceId == "RIPPLE/SMARTREMOTE" ) {
+			$("rssi").update( getSignalStrength( msg.rssi ) );
+			if( msg.serial == "0013a20040562fce" ||
+				( msg.nodeInfo && (msg.nodeInfo.deviceId == "PANDA:DEVICE:002" ||
+				msg.nodeInfo.deviceId == "RIPPLE/SMARTREMOTE" ) ) ) {
 				this.addAndRefreshStepData( msg );
+			}
+			else {
+				$("sound2").play();
+				// alert( "Got something" );
 			}
 		},
 		addAndRefreshStepData : function(msg) {
-			if( msg.data.match( /B([0-9])1/ ) ) {
-				var button = parseInt(RegExp.$1);
-				hdr.addRecord( Date.parseJSON(msg.serverRecpTime) );
-				refreshData();
-				if( $("enabledSound").checked ) {
-					switch(button) {
-						case 1: $("sound3").play(); break;
-						case 2: $("sound2").play(); break;
-						case 3: $("sound1").play(); break;
-					}
-				}
-				if( $("enableAlert").checked ) {
-					var myAnim = new YAHOO.util.ColorAnim($("dialogSecurity"),{
-						backgroundColor: {
-							to: "#ffcccc"
-						}
-					});
-					myAnim.animate();
 
-					new Ajax.Request( "/mail/" + $F("mailAddress"), {
-						onSuccess : function( resp ) {
-							var myAnim = new YAHOO.util.ColorAnim($("dialogSecurity"),{
-								backgroundColor: {
-									to: "#ffffcc"
-								}
-							});
-							myAnim.animate();
-						}
-					} );
+			var button = msg.data.match( /B([0-9])1/ ) ? parseInt(RegExp.$1) : 1;
+			
+			hdr.addRecord( Date.parseJSON(msg.serverRecpTime) );
+			refreshData();
+			if( $("enabledSound").checked ) {
+				switch(button) {
+					case 1: $("sound3").load(); $("sound3").play(); break;
+					case 2: $("sound2").load(); $("sound2").play(); break;
+					case 3: $("sound1").load(); $("sound1").play(); break;
 				}
-				if( $("enabledLight").checked ) {
-					var cx = $F("lightCx");
-					new Ajax.Request( "/send/000000000000ffff/L" + cx + "H", {
-						onSuccess : function( resp ) {
-						}
-					} );
-					
-					setTimeout( function(){
-						new Ajax.Request( "/send/000000000000ffff/L" + cx + "L", {
-							onSuccess : function( resp ) {
+			}
+			if( $("enableAlert").checked ) {
+				var myAnim = new YAHOO.util.ColorAnim($("dialogSecurity"),{
+					backgroundColor: {
+						to: "#ffcccc"
+					}
+				});
+				myAnim.animate();
+
+				new Ajax.Request( "/mail/" + $F("mailAddress"), {
+					onSuccess : function( resp ) {
+						var myAnim = new YAHOO.util.ColorAnim($("dialogSecurity"),{
+							backgroundColor: {
+								to: "#ffffcc"
 							}
-						} );
-					}, parseInt( $F("lightDuration")*1000 ) );
-				}
+						});
+						myAnim.animate();
+					}
+				} );
+			}
+			if( $("enabledLight").checked ) {
+				var cx = $F("lightCx");
+				new Ajax.Request( "/send/000000000000ffff/L" + cx + "H", {
+					onSuccess : function( resp ) {
+					}
+				} );
+				
+				setTimeout( function(){
+					new Ajax.Request( "/send/000000000000ffff/L" + cx + "L", {
+						onSuccess : function( resp ) {
+						}
+					} );
+				}, parseInt( $F("lightDuration")*1000 ) );
 			}
 		}
 	});

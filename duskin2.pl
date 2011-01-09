@@ -144,9 +144,20 @@ POE::Component::Server::TCP->new(
 
 				if( $request->method eq "POST" && $request->header("Content-Length") * 1 > 0 )
 				{
-					logger( "INFO", "Broadcasting message: " . $request->content );
-			        broadcastAll( $session_id, $request->content );
+					my $raw = $request->content;
+					logger( "INFO", $raw );
+					my $frame = from_json( $raw );
+					enrichNodeData( $frame, $xbdb );
+					my $frame_str = to_json( $frame );
+					logger( "INFO", "Broadcasting message: " . $frame_str );
+			        broadcastAll( $session_id, $frame_str );
 				}
+				my $response = HTTP::Response->new(200);
+				$response->push_header("Conte-type", "text/html" );
+				$response->content( "Hello, your message has been sent!" );
+				$heap->{client}->put( $response );
+				$kernel->yield( "shutdown" );
+				return;
 			}
 			elsif( $request->uri eq "/socket" ) {
 				logger( "INFO", "[#$session_id] Request:\n" . $request->as_string );
@@ -400,6 +411,7 @@ sub enrichNodeData
 	$frame->{serverRecpTime} = time2str( "%Y-%m-%dT%H:%M:%SZ%z", time() );
 }
 
+=xbee stuff
 # Create
 $xbee = Xbee::API->new( { port => '/dev/ttyUSB0', debug => 0, speed => 19200 } );
 
@@ -467,16 +479,11 @@ threads->new(sub {
 			}
             else {
                 logger( "INFO", "0x" . unpack( "H*", $frame->{raw_data} ) );
-				$frame->{type} = "Unknown";
-				enrichNodeData( $frame, $xbdb );
-				my $msg = to_json( $frame ) . "\r\n";
-				$http_request->content( $msg );
-				$http_request->header( "Content-Length" => length( $msg ) );
-				print $remote $http_request->as_string;
             }
 		}
 	}
 } );
+=cut
 
 POE::Kernel->run();
 

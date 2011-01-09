@@ -1,0 +1,77 @@
+<html>
+<head>
+<title>Testing Ripple</title>
+<script type="text/javascript" src="script/prototype.lite.js"></script>
+<script type="text/javascript" src="script/Ripple.js"></script>
+<script type="text/javascript">
+
+var audio = new Audio("http://yizumi.ripplesystem.com/media/sound2.mp3");
+audio.load();
+
+Element.observe(window,"load",function(){
+
+	var fader = $("fader");
+	var container = $("container");
+	var ripple = new Ripple( "192.168.1.15", {
+		onOpen : function(){
+			fader .hide();
+			container.innerHTML += "Connected!<br/>\n";
+			container.scrollTop = container.scrollHeight;
+		},
+
+		onMessage : function (obj) {
+			audio.play();
+			container.innerHTML += Object.toJSON(obj) + "<br/>\n";
+			container.scrollTop = container.scrollHeight;
+		},
+
+		onClose : function (failCount,retryInterval) {
+			fader.show();
+			container.innerHTML += "Connection closed ("+failCount+"). Retrying in "+retryInterval+"sec(s).<br/>\n";
+			container.scrollTop = container.scrollHeight;
+		},
+
+		onGiveUp : function() {
+			fader.show();
+			alert( "ERROR: Connection could not be established after 3 retries" );
+		}
+	});
+	ripple.start();
+});
+
+function playSound()
+{
+	audio.load();
+	audio.play();
+}
+
+</script>
+<style>
+#fader {
+	width: 1024px;
+	height: 768px;
+	background-color: White;
+	opacity:0.50; /* firefox, opera, safari, chrome */
+    -ms-filter:"progid:DXImageTransform.Microsoft.Alpha(opacity=50)"; /* IE 8 */
+    filter:alpha(opacity=50); /* IE 4, 5, 6 and 7 */
+	position: fixed;
+	top: 0px;
+	left: 0px;
+}
+#container {
+	background-color: black;
+	color: White;
+	width: 1024px;
+	height: 768px;
+	overflow-y: scroll;
+}
+</style>
+</head>
+<body style="margin:0px;border:0px;">
+<div id="container">
+<a href="javascript:playSound();">PlaySound</a>
+</div>
+<div id="fader">
+</div>
+</body>
+</html>

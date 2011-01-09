@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html><!-- manifest="ipad.manifest" -->
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="viewport" content="user-scalable=no,width=device-width,height=device-height,initial-scale=1.0,maximum-scale=1.0" />
+	<meta name="apple-mobile-web-app-capable" content="yes" />
+	<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+	<!-- apple-touch-startup-image doesn't work with ipad -->
+	<!-- link rel="apple-touch-startup-image" href="apple-touch-startup-image.png" / -->
+	<title>DUSKIN i-Mat</title>
+	<script type="text/javascript" src="/script/prototype.lite.js"></script>
+	<script type="text/javascript" src="duskin.js"></script>
+	<style>
+	body,div,p,span {
+		font-family: メイリオ,Arial,Helvetica;
+		font-size: 9pt;
+	}
+
+	#globalDiv {
+		width:1024px;
+		height:748px;
+	}
+	/*
+	color-stop(0, rgb(81,84,128)),
+    color-stop(0.71, rgb(0,0,0))
+	*/
+	#toolbar {
+		height: 35px;
+	}
+
+	.TopMenuItem {
+		border-radius: 0px 0px 8px 8px;
+		color: White;
+		float: right;
+		margin: 0px 2px;
+		height: 28px;
+		cursor: pointer;
+	}
+
+	.TopMenuItem IMG {
+		margin-top: -2px;
+	}
+	</style>
+</head>
+<body style="margin:0px;padding:0px;">
+<div id="globalDiv">
+	<div id="toolbar">
+		<img src="duskin-logo.png" height="27" width="128" align="absmiddle" style="margin:4px"/>
+		<img src="duskin-imat-logo.png" height="23" width="178" align="absmiddle" style="margin:4px"/>
+		<img src="duskin-realtime.png" height="28" width="101" align="absmiddle" style="margin:4px"/>
+		<div class="TopMenuItem" id="menuSecurity">
+			<div style="margin: 5px 12px;">
+				セキュリティ
+				<img src="arrow-white-down.png" width="8" height="5" align="absmiddle"/>
+			</div>
+		</div>
+		<div class="TopMenuItem" id="menuTraffic">
+			<div style="margin: 5px 12px;">
+				トラフィック
+				<img src="arrow-white-down.png" width="8" height="5" align="absmiddle"/>
+			</div>
+		</div>
+		<div style="float:none;clear:both;"></div>
+	</div>
+	<div id="containerDiv">
+		<span style="color:White;font-size:128pt;">Baka</span>
+	</div>
+</div>
+</body>
+</html>
