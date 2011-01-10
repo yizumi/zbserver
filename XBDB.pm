@@ -35,10 +35,21 @@
 					deviceId varchar(20) NOT NULL,
 					lastUpdate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 					deviceType varchar(32),
+					domain varchar(64),
+					site varchar(64),
 					area varchar(255),
 					currentState varchar(255),
 					permission varchar(10),
 					displayName varchar(255)
+				);
+			]);
+
+			$self->execUpdate( qq[
+				CREATE TABLE IF NOT EXISTS Site(
+					domain varchar(64),
+					site varchar(64),
+					displayName varchar(255),
+					PRIMARY KEY (domain,site)
 				);
 			]);
 
@@ -127,6 +138,13 @@
 			my( $self, $frame ) = @_;
 			$self->execUpdate( "INSERT INTO RxResponse ( serial, signalStrength, options, checksum, data ) VALUES (?,?,?,?,?)", 
 				$frame->{serial}, $frame->{rssi}, $frame->{options}, $frame->{checksum} eq "OK" ? 1 : 0, $frame->{data} );
+		}
+
+		sub storeSite
+		{
+			my( $self, $domain, $site, $displayName ) = @_;
+			$self->execUpdate( "INSERT INTO Site ( domain, site, displayName ) values (?,?,?)",
+				$domain, $site, $displayName );
 		}
 
 		sub setNode

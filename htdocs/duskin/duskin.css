@@ -1,0 +1,142 @@
+
+body,div,p,span,a,li,ul {
+	font-family: メイリオ,Arial,Helvetica;
+	font-size: 9pt;
+	color: inherit;
+}
+
+a { text-decoration: none; color: inherit; }
+a:visted { text-decoration: none; color: inherit; }
+a:active { text-decoration: none; color: inherit; }
+a:hover { text-decoration: none; color: inherit; }
+
+
+#globalDiv {
+	width:1024px;
+	height:748px;
+}
+
+#fader {
+	position:fixed;
+	top:0px;
+	left:0px;
+	width:1024px;
+	height:748px;
+	opacity:0.50; /* firefox, opera, safari, chrome */
+    -ms-filter:"progid:DXImageTransform.Microsoft.Alpha(opacity=50)"; /* IE 8 */
+    filter:alpha(opacity=50); /* IE 4, 5, 6 and 7 */
+	background-color: White;
+}
+/*
+color-stop(0, rgb(81,84,128)),
+color-stop(0.71, rgb(0,0,0))
+*/
+
+#retryMessageContainer {
+	position: fixed;
+	width: 350px;
+	height: 100px;
+	left: 337px;
+	top: 324px;
+}
+
+#retryMessage {
+	padding: 8px;
+	position: absolute; top: 25%; left: 25%;
+	text-align: center;
+}
+
+#toolbar {
+	height: 35px;
+}
+
+.TopMenuItem {
+	border-radius: 0px 0px 8px 8px;
+	color: White;
+	float: right;
+	margin: 0px 2px;
+	height: 28px;
+	cursor: pointer;
+}
+
+.TopMenuItem IMG {
+	margin-top: -2px;
+}
+
+#containerDiv {
+	padding: 4px;
+}
+
+
+.component
+{
+	padding: 4px;
+}
+
+.component-title
+{
+	padding: 4px;
+	color: White;
+	font-size: 12pt;
+	font-weight: bold;
+}
+
+.tiny-combobox
+{
+	color: white;
+	margin-top: 3px;
+	margin-bottom: 3px;
+	padding: 3px 6px 3px 6px;
+	cursor: hand;
+}
+
+.tiny-combobox SPAN
+{
+	font-size: 6pt;
+}
+
+.component-body
+{
+}
+
+.rtcount-item
+{
+	color: white;
+	margin-top: 4px;
+	margin-bottom: 4px;
+}
+
+.rtcount-item-title
+{
+	font-size: 14pt;
+	font-weight: bold;
+}
+
+.rtcount-item-description
+{
+	color: #ccc;
+}
+
+.rtcount-item-histograph
+{
+}
+
+.rtcount-item-bigcounter
+{
+	font-size: 24pt;
+	min-width: 125px;
+	height: 55px;
+	padding-top: 15px;
+	text-align: center;
+	font-weight: bold;
+	vertical-align: middle;
+}
+
+.component-footer
+{
+}
+
+.rtcount-count
+{
+	font-size: inherit;
+}

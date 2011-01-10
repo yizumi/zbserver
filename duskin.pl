@@ -50,7 +50,6 @@ my $MIME = {
 	"mp3"   => "audio/mpeg"
 };
 
-use FindBin;
 use lib "$FindBin::Bin";
 use XBDB;
 use Digest::MD5 qw( md5 );
@@ -147,6 +146,20 @@ POE::Component::Server::TCP->new(
 					logger( "INFO", "Broadcasting message: " . $request->content );
 			        broadcastAll( $session_id, $request->content );
 				}
+			}
+			elsif( $request->uri eq "/put" ) {
+				if( !exists $client->{publisher} )
+				{
+		            logger( "INFO", "[#$session_id] is logged in as a publisher" );
+					$client->{publisher} = 1;
+				}
+
+				if( $request->method eq "POST" && $request->header("Content-Length") * 1 > 0 )
+				{
+					logger( "INFO", "Broadcasting message: " . $request->content );
+			        broadcastAll( $session_id, $request->content );
+				}
+				$kernel->yield( "shutdown" );
 			}
 			elsif( $request->uri eq "/socket" ) {
 				logger( "INFO", "[#$session_id] Request:\n" . $request->as_string );
@@ -464,6 +477,16 @@ threads->new(sub {
 						$xbdb->setNode( $serial, $my, $db, $identifier );
 					}
 				}
+			}
+			elsif( $frame->{type} == 0x82 ) {
+				$xbdb->storeRxFrame( $frame );
+                # logger( "INFO", "0x" . unpack( "H*", $frame->{raw_data} ) );
+				$frame->{type} = "SampleReading";
+				enrichNodeData( $frame, $xbdb );
+				my $msg = to_json( $frame ) . "\r\n";
+				$http_request->content( $msg );
+				$http_request->header( "Content-Length" => length( $msg ) );
+				print $remote $http_request->as_string;
 			}
             else {
                 logger( "INFO", "0x" . unpack( "H*", $frame->{raw_data} ) );
