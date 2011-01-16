@@ -60,18 +60,23 @@ var webapp = {
 	}
 };
 
-Element.observe(window,'load',function(){
-	$$("DIV.Gradient").each(function(div){
-		Canvas.setGradient(div,div.getAttribute("x-gradient"));
+Element.observe(window,'load',function()
+{
+	$$("DIV.Gradient").each(function(div){Canvas.setGradient(div,div.getAttribute("x-gradient"));});
+	$$("DIV.AquaGradient").each(function(div){Canvas.setAquaGradient(div,div.getAttribute("x-radius"),div.getAttribute("x-gradient"));});
+	$$("DIV.RoundedGradient").each(function(div){Canvas.setRoundedGradient(div,div.getAttribute("x-radius"),div.getAttribute("x-gradient"));});
+
+	var front = $("rtcountComp").down(".face.front");
+	var back = $("rtcountComp").down(".face.back");
+
+	front.observe('click',function(){
+		front.addClassName("flip");
+		back.addClassName("flip");
 	});
 
-	$$("DIV.AquaGradient").each(function(div){
-		Canvas.setAquaGradient(div,div.getAttribute("x-radius"),div.getAttribute("x-gradient"));
-	});
-
-	$$("DIV.RoundedGradient").each(function(div){
-		Canvas.setRoundedGradient(div,div.getAttribute("x-radius"),div.getAttribute("x-gradient"));
-
+	back.observe('click',function(){
+		front.removeClassName("flip");
+		back.removeClassName("flip");
 	});
 	
 	var stopScrolling = function( touchEvent ) { touchEvent.preventDefault(); };
@@ -80,6 +85,7 @@ Element.observe(window,'load',function(){
 
 	var rtcounter = new RealtimeCounterPresenter($("rtcountComp"));
 	var medica = new Medica($("medicalTab"));
+	var rtmap = new RealtimeMap($("rtMap"));
 
 	var ripple = new Ripple(document.location.hostname,{
 		onOpen: function() {
@@ -89,6 +95,7 @@ Element.observe(window,'load',function(){
 			this.updateRssi( obj.rssi );
 			rtcounter.onMessage(obj);
 			medica.onMessage(obj);
+			rtmap.onMessage(obj);
 		},
 		updateRssi : function( rssi ) {
 			var str = rssi < 50 ? "強" : rssi < 70 ? "中" : rssi < 90 ? "弱" : "微";
@@ -276,6 +283,9 @@ var Canvas = {
 	}
 };
 
+var RealtimeCountProvider = Class.create({
+});
+
 var RealtimeCounterPresenter = Class.create({
 	initialize : function( view ) {
 		this.view = view;
@@ -382,5 +392,54 @@ var Medica = Class.create({
 		catch (e)
 		{
 		}
+	}
+});
+
+var RealtimeMap = Class.create({
+
+	initialize : function(view) {
+		this.view = view;
+		this.infoWindowMap = {};
+		this.countMap = {};
+
+		this.map = new google.maps.Map( this.view, {
+			zoom: 8,
+			center: new google.maps.LatLng(35.422,139.4254),
+			mapTypeId: google.maps.MapTypeId.ROADMAP
+		} );
+
+	},
+	
+	onMessage : function( obj ) {
+		var latlng = new google.maps.LatLng(obj.nodeInfo.latitude, obj.nodeInfo.longitude);
+		var serial = obj.serial;
+		var title = "東京";
+		if( !this.infoWindowMap[serial] )
+		{
+			this.createMarker( serial, latlng, title );
+		}
+		this.infoWindowMap[serial].update(++this.countMap[serial]);
+	},
+	
+	createMarker : function( serial, latlng, title ) {
+		this.countMap[serial] = 0;
+
+		var marker = new google.maps.Marker({
+			position: latlng,
+			map: this.map,
+			title: title
+		});
+
+		var infoWindowCont = new Element("div").update(this.countMap[serial]);
+
+		var infoWindow = new google.maps.InfoWindow({
+			content: infoWindowCont
+		});
+
+		google.maps.event.addListener(marker, "click", function() {
+			infoWindow.open( this.map, marker );
+		});
+
+		this.infoWindowMap[serial] = infoWindowCont;
 	}
 });

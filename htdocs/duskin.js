@@ -245,7 +245,7 @@ var initComponents = function( initData ) {
 	}, 1000 );
 
 	// Start the communication with the Ripple server
-	var ripple = new Ripple("192.168.1.15",{
+	var ripple = new Ripple(document.location.hostname,{
 		onMessage : function( msg ) {
 			$("rssi").update( getSignalStrength( msg.rssi ) );
 			if( msg.serial == "0013a20040562fce" ||

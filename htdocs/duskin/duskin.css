@@ -140,3 +140,36 @@ color-stop(0.71, rgb(0,0,0))
 {
 	font-size: inherit;
 }
+
+.face
+{
+	text-align: center;
+	position: absolute;
+	-webkit-backface-visibility: hidden;
+	-webkit-transform-style: preserve-3d;
+	-webkit-transition: all 0.75s ease-in-out;
+}
+
+#rtcountComp {
+	-webkit-perspective: 1000;
+}
+
+#rtcountComp .face.front {
+	-webkit-transform: rotateY(0deg);
+}
+
+#rtcountComp .face.back {
+	-webkit-transform: rotateY(180deg);
+	-webkit-box-sizing: border-box;
+}
+
+#rtcountComp .face.back header {
+}
+
+#rtcountComp .face.front.flip  {
+	-webkit-transform: rotateY(-180deg);	
+}
+
+#rtcountComp .face.back.flip {
+	-webkit-transform: rotateY(0deg);	
+}
