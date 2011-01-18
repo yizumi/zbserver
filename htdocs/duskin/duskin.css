@@ -141,6 +141,7 @@ color-stop(0.71, rgb(0,0,0))
 	font-size: inherit;
 }
 
+/*
 .face
 {
 	text-align: center;
@@ -173,3 +174,4 @@ color-stop(0.71, rgb(0,0,0))
 #rtcountComp .face.back.flip {
 	-webkit-transform: rotateY(0deg);	
 }
+*/

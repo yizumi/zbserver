@@ -182,6 +182,62 @@
                 return undef;
             } );
 		}
+
+		sub getRecordCountSummary
+		{
+			my( $self, $domain, $siteMask, $samplingFreq, $startDate, $endDate ) = @_;
+
+			my @fields = ();
+			my @groupby = ();
+
+			if( scalar( grep { $samplingFreq eq $_ } ("year","month","day","hour","minute","second") ) > 0 )
+			{
+				push( @fields, "year(resTime) as 'year'" );
+				push( @groupby, "year(resTime)" );
+			}
+
+			if( scalar( grep { $samplingFreq eq $_ } ("month","day","hour","minute","second") ) > 0 )
+			{
+				push( @fields, "month(resTime) as 'month'" );
+				push( @groupby, "month(resTime)" );
+			}
+
+			if( scalar( grep { $samplingFreq eq $_ } ("day","hour","minute","second") ) > 0 )
+			{
+				push( @fields, "day(resTime) as 'day'" );
+				push( @groupby, "day(resTime)" );
+			}
+
+			if( scalar( grep { $samplingFreq eq $_ } ("hour","minute","second") ) > 0 )
+			{
+				push( @fields, "hour(resTime) as 'hour'" );
+				push( @groupby, "hour(resTime)" );
+			}
+
+			if( scalar( grep { $samplingFreq eq $_ } ("minute","second") ) > 0 )
+			{
+				push( @fields, "minute(resTime) as 'minute'" );
+				push( @groupby, "minute(resTime)" );
+			}
+
+			if( scalar( grep { $samplingFreq eq $_ } ("second") ) > 0 )
+			{
+				push( @fields, "second(resTime) as 'second'" );
+				push( @groupby, "second(resTime)" );
+			}
+
+			push( @fields, "count(*) as 'ct'" );
+
+			my $sql = "SELECT " . join( ", ", @fields ) . " FROM RxResponse WHERE serial IN( SELECT serial FROM Node WHERE domain='$domain' AND site LIKE '$siteMask') AND resTime >= '$startDate' AND resTime < '$endDate' GROUP BY " . join( ", ", @groupby );
+			my @data = ();
+			my $res = $self->execQuery( $sql );
+			$res->each( sub {
+				my( $row ) = @_;
+				push( @data, $row );
+			});
+
+			return \@data;
+		}
 	}
 
 	1;

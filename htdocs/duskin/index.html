@@ -49,101 +49,97 @@
 		<div style="float:none;clear:both;"></div>
 	</div>
 	<div id="containerDiv">
-		<div id="trafficTab">
-			<div id="rtcountComp" style="float:left;">
-				<section class="card">
-					<div class="face front component Gradient" x-gradient="0 #454850,0.75 #14151A;" style="width:350px;height:500px;">
-						<div class="component-title Gradient" x-gradient="0 #2A2E37,0.3 #32363F,0.7 #1A1D22,1.0 #2B3036">リアルタイムカウント（今日現在）</div>
-						<div class="tiny-combobox RoundedGradient" x-gradient="0 #999,1 #666" x-radius="3">
-							<div style="float:left;">
-								<span>グラフ：過去１時間推移</span>
-								<ul style="display:none;">
-									<li>グラフ：過去１時間推移</li>
-									<li>グラフ：過去24時間推移</li>
-									<li>グラフ：過去一週間推移</li>
-									<li>グラフ：過去一ヶ月推移</li>
-								</ul>
-							</div>
-							<div style="float:right;"><img src="arrow-white-down.png" width="8" height="5"></div>
-							<div style="float:none;clear:both;"></div>
-						</div>
-						<div class="component-body">
-							<div class="rtcount-item" x-site="jp">
-								<div style="float:left;">
-									<div class="rtcount-item-title">全国</div>
-									<div class="rtcount-item-description">
-										現地時間 <span class="rtcount-curr-time">0:00</span> / 
-										最終履歴 <span class="rtcount-last-update">0:00</span>
-									</div>
-									<div class="rtcount-item-histograph"> </div>
-								</div>
-								<div style="float:right;">
-									<div class="rtcount-item-bigcounter AquaGradient" x-gradient="0 #212636,1 #465073" x-corner-radius="8"><span class="rtcount-count">0</span></div>
-								</div>
-								<div style="float:none;clear:both;"></div>
-							</div>
-							<div class="rtcount-item" x-site="jp.tk">
-								<div style="float:left;">
-									<div class="rtcount-item-title">東京</div>
-									<div class="rtcount-item-description">
-										現地時間 <span class="rtcount-curr-time">0:00</span> / 
-										最終履歴 <span class="rtcount-last-update">0:00</span>
-									</div>
-									<div class="rtcount-item-histograph"> </div>
-								</div>
-								<div style="float:right;">
-									<div class="rtcount-item-bigcounter AquaGradient" x-gradient="0 #212636,1 #465073" x-corner-radius="8"><span class="rtcount-count">0</span></div>
-								</div>
-								<div style="float:none;clear:both;"></div>
-							</div>
-							<div class="rtcount-item" x-site="jp.os">
-								<div style="float:left;">
-									<div class="rtcount-item-title">大阪</div>
-									<div class="rtcount-item-description">
-										現地時間 <span class="rtcount-curr-time">0:00</span> / 
-										最終履歴 <span class="rtcount-last-update">0:00</span>
-									</div>
-									<div class="rtcount-item-histograph"> </div>
-								</div>
-								<div style="float:right;">
-									<div class="rtcount-item-bigcounter AquaGradient" x-gradient="0 #212636,1 #465073" x-corner-radius="8"><span class="rtcount-count">0</span></div>
-								</div>
-								<div style="float:none;clear:both;"></div>
-							</div>
-							<div class="rtcount-item" x-site="jp.tk.shibuya">
-								<div style="float:left;">
-									<div class="rtcount-item-title">渋谷</div>
-									<div class="rtcount-item-description">
-										現地時間 <span class="rtcount-curr-time">0:00</span> / 
-										最終履歴 <span class="rtcount-last-update">0:00</span>
-									</div>
-									<div class="rtcount-item-histograph"> </div>
-								</div>
-								<div style="float:right;">
-									<div class="rtcount-item-bigcounter AquaGradient" x-gradient="0 #212636,1 #465073" x-corner-radius="8"><span class="rtcount-count">0</span></div>
-								</div>
-								<div style="float:none;clear:both;"></div>
-							</div>
-						</div>
-						<!--
-						<div class="component-footer">
-							<div id="rtcountComp" class="component Gradient" x-gradient="0 #454850,0.75 #14151A;" style="width:350px;"></div>
-						</div>
-						-->
+		<div id="trafficTab" style="position:relative;">
+			<div id="rtcountComp" class="face front component Gradient" x-gradient="0 #454850,0.75 #14151A;" style="width:300px;height:500px;display:inline-block;">
+				<div class="component-title Gradient" x-gradient="0 #2A2E37,0.3 #32363F,0.7 #1A1D22,1.0 #2B3036">リアルタイムカウント（今日現在）</div>
+				<div class="tiny-combobox RoundedGradient" x-gradient="0 #999,1 #666" x-radius="3">
+					<div style="float:left;">
+						<span>グラフ：過去１時間推移</span>
+						<ul style="display:none;">
+							<li>グラフ：過去１時間推移</li>
+							<li>グラフ：過去24時間推移</li>
+							<li>グラフ：過去一週間推移</li>
+							<li>グラフ：過去一ヶ月推移</li>
+						</ul>
 					</div>
+					<div style="float:right;"><img src="arrow-white-down.png" width="8" height="5"></div>
+					<div style="float:none;clear:both;"></div>
+				</div>
+				<div class="component-body">
+					<div class="rtcount-item" x-site="jp">
+						<div style="float:left;">
+							<div class="rtcount-item-title">全国</div>
+							<div class="rtcount-item-description">
+								現地時間 <span class="rtcount-curr-time">0:00</span><br/>
+								最終履歴 <span class="rtcount-last-update">0:00</span>
+							</div>
+							<div class="rtcount-item-histograph"> </div>
+						</div>
+						<div style="float:right;">
+							<div class="rtcount-item-bigcounter AquaGradient" x-gradient="0 #212636,1 #465073" x-corner-radius="8"><span class="rtcount-count">0</span></div>
+						</div>
+						<div style="float:none;clear:both;"></div>
+					</div>
+					<div class="rtcount-item" x-site="jp.tk">
+						<div style="float:left;">
+							<div class="rtcount-item-title">東京</div>
+							<div class="rtcount-item-description">
+								現地時間 <span class="rtcount-curr-time">0:00</span><br/>
+								最終履歴 <span class="rtcount-last-update">0:00</span>
+							</div>
+							<div class="rtcount-item-histograph"> </div>
+						</div>
+						<div style="float:right;">
+							<div class="rtcount-item-bigcounter AquaGradient" x-gradient="0 #212636,1 #465073" x-corner-radius="8"><span class="rtcount-count">0</span></div>
+						</div>
+						<div style="float:none;clear:both;"></div>
+					</div>
+					<div class="rtcount-item" x-site="jp.os">
+						<div style="float:left;">
+							<div class="rtcount-item-title">大阪</div>
+							<div class="rtcount-item-description">
+								現地時間 <span class="rtcount-curr-time">0:00</span><br/>
+								最終履歴 <span class="rtcount-last-update">0:00</span>
+							</div>
+							<div class="rtcount-item-histograph"> </div>
+						</div>
+						<div style="float:right;">
+							<div class="rtcount-item-bigcounter AquaGradient" x-gradient="0 #212636,1 #465073" x-corner-radius="8"><span class="rtcount-count">0</span></div>
+						</div>
+						<div style="float:none;clear:both;"></div>
+					</div>
+					<div class="rtcount-item" x-site="jp.tk.shibuya">
+						<div style="float:left;">
+							<div class="rtcount-item-title">渋谷</div>
+							<div class="rtcount-item-description">
+								現地時間 <span class="rtcount-curr-time">0:00</span><br/>
+								最終履歴 <span class="rtcount-last-update">0:00</span>
+							</div>
+							<div class="rtcount-item-histograph"> </div>
+						</div>
+						<div style="float:right;">
+							<div class="rtcount-item-bigcounter AquaGradient" x-gradient="0 #212636,1 #465073" x-corner-radius="8"><span class="rtcount-count">0</span></div>
+						</div>
+						<div style="float:none;clear:both;"></div>
+					</div>
+				</div>
+				<!--
+				<div class="component-footer">
+					<div id="rtcountComp" class="component Gradient" x-gradient="0 #454850,0.75 #14151A;" style="width:350px;"></div>
+				</div>
+				-->
+			</div>
+					<!--
 					<div class="face back component Gradient" x-gradient="0 #454850,0.75 #14151A;" style="width:358px; height:508px;background-color:Gray;">
 						<div class="component-title Gradient" x-gradient="0 #2A2E37,0.3 #32363F,0.7 #1A1D22,1.0 #2B3036">リアルタイムカウント（設定）</div>
 						Oh wow....
 					</div>
-				</section>
+					-->
+				<!-- /section-->
+			<div id="rtmapComp" class="component Gradient" x-gradient="0 #454850,0.75 #14151A;" style="width:350px;display:inline-block;">
+				<div class="component-title Gradient" x-gradient="0 #2A2E37,0.3 #32363F,0.7 #1A1D22,1.0 #2B3036">マップ</div>
+				<div class="map-canvas" style="width:100%;height:400px;"></div>
 			</div>
-			<div id="rtMap" style="float:left;position:static;">
-				<div class="component Gradient" x-gradient="0 #454850,0.75 #14151A;" style="width:600px;height:500px;">
-					<div class="component-title Gradient" x-gradient="0 #2A2E37,0.3 #32363F,0.7 #1A1D22,1.0 #2B3036">マップ</div>
-					<div id="rtMapCanvas" style="width:600px;height:500px;"></div>
-				</div>
-			</div>
-			<div style="float:none;clear:both;"></div>
 		</div>
 		<div id="securityTab" style="color:White;font-size:128pt;display:none;">
 		</div>

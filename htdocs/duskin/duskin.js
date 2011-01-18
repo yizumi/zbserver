@@ -23,6 +23,52 @@ var webapp = {
 				self.onHashChange( hash+"" );
 			}
 		}, 100 );
+
+		// stuff
+		var count = 0;
+		var lastElm = null;
+		var margin = 8;
+
+		var x = $$("DIV.component");
+		/*
+		for( var i = 0 ; i < x.length; i++ )
+		{
+			var elm = x[i];
+			if( lastElm == null )
+			{
+				elm.setStyle({position:"absolute",top:0,left:0});
+			}
+			// first attempt to place it below the last element if the width matches
+			//else if( elm.getWidth() <= lastElm.getWidth() && elm.)
+			//{
+			//	elm.setStyle({position:"relative",top:lastElm.getHeight()+margin});
+			// }
+			else
+			{
+				elm.setStyle({position:"absolute",top:0,left:lastElm.getWidth()+margin});
+			}
+
+			lastElm = elm;
+		}*/
+
+/*
+		x.each(function(elm){
+			if( lastElm == null )
+			{
+				elm.getStyle({position:"relative",top:0,left:0});
+			}
+			// first attempt to place it below the last element if the width matches
+			//else if( elm.getWidth() <= lastElm.getWidth() && elm.)
+			//{
+			//	elm.setStyle({position:"relative",top:lastElm.getHeight()+margin});
+			// }
+			else
+			{
+				elm.setStyle({position:"relative",top:0,left:lastElm.getWidth()+margin});
+			}
+
+			lastElm = elm;
+		});*/
 	},
 	
 	onHashChange : function( hash ) {
@@ -66,6 +112,7 @@ Element.observe(window,'load',function()
 	$$("DIV.AquaGradient").each(function(div){Canvas.setAquaGradient(div,div.getAttribute("x-radius"),div.getAttribute("x-gradient"));});
 	$$("DIV.RoundedGradient").each(function(div){Canvas.setRoundedGradient(div,div.getAttribute("x-radius"),div.getAttribute("x-gradient"));});
 
+	/*
 	var front = $("rtcountComp").down(".face.front");
 	var back = $("rtcountComp").down(".face.back");
 
@@ -78,6 +125,7 @@ Element.observe(window,'load',function()
 		front.removeClassName("flip");
 		back.removeClassName("flip");
 	});
+	*/
 	
 	var stopScrolling = function( touchEvent ) { touchEvent.preventDefault(); };
 	// document.addEventListener( 'touchstart', stopScrolling, false );
@@ -85,7 +133,7 @@ Element.observe(window,'load',function()
 
 	var rtcounter = new RealtimeCounterPresenter($("rtcountComp"));
 	var medica = new Medica($("medicalTab"));
-	var rtmap = new RealtimeMap($("rtMap"));
+	var rtmap = new RealtimeMap($("rtmapComp"));
 
 	var ripple = new Ripple(document.location.hostname,{
 		onOpen: function() {
@@ -401,13 +449,21 @@ var RealtimeMap = Class.create({
 		this.view = view;
 		this.infoWindowMap = {};
 		this.countMap = {};
+		this.lastLatLng = null;
 
-		this.map = new google.maps.Map( this.view, {
+		this.map = new google.maps.Map( this.view.down("DIV.map-canvas"), {
 			zoom: 8,
 			center: new google.maps.LatLng(35.422,139.4254),
 			mapTypeId: google.maps.MapTypeId.ROADMAP
 		} );
 
+		var self = this;
+
+		setInterval( function(){
+			if( self.lastLatLng != null ) {
+				self.map.panTo( self.lastLatLng );
+			}
+		}, 5000 );
 	},
 	
 	onMessage : function( obj ) {
@@ -418,7 +474,8 @@ var RealtimeMap = Class.create({
 		{
 			this.createMarker( serial, latlng, title );
 		}
-		this.infoWindowMap[serial].update(++this.countMap[serial]);
+		this.infoWindowMap[serial].getContent().update(++this.countMap[serial]);
+		this.lastLatLng = latlng;
 	},
 	
 	createMarker : function( serial, latlng, title ) {
@@ -440,6 +497,6 @@ var RealtimeMap = Class.create({
 			infoWindow.open( this.map, marker );
 		});
 
-		this.infoWindowMap[serial] = infoWindowCont;
+		this.infoWindowMap[serial] = infoWindow;
 	}
 });
