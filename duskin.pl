@@ -118,16 +118,21 @@ sub getConnection
 	return $cnx;
 }
 
+my %cached_node_data = {};
+
 #---------------------------------------------
 sub enrichNodeData
 #---------------------------------------------
 {
     my( $frame, $xbdb ) = @_;
-    my $rs = $xbdb->execQuery( "SELECT * FROM Node WHERE serial=?", $frame->{serial} );
-    $rs->each( sub {
-        my( $hash ) = @_;
-        $frame->{nodeInfo} = $hash;
-    });
+	if( !exists( $cached_node_data{$frame->{serial}} ) )
+	{
+	    my $rs = $xbdb->execQuery( "SELECT * FROM Node WHERE serial=?", $frame->{serial} );
+	    $rs->each( sub {
+		    $cached_node_data{$frame->{serial}} = shift;
+	    });
+	}
+	$frame->{nodeInfo} = $cached_node_data{$frame->{serial}};
 	$frame->{serverRecpTime} = time2str( "%Y-%m-%dT%H:%M:%SZ%z", time() );
 }
 
@@ -141,11 +146,33 @@ sub sendHttpRequest
 	logger( "INFO", "Sent: " . $http_request->as_string );
 }
 
+# We want to buffer the data until we see end of line
+my %buffered_data = {};
+sub buffer_rs232_input
+{
+	my( $serial, $partial_data ) = @_;
+	my $line;
+	my $byte;
+
+	foreach $byte ( split //, $partial_data ) {
+		if( $byte =~ /\x02/ ) {
+			$buffered_data{$serial} = "";
+		}
+		elsif( $byte =~ /\x03/ ) {
+			$line = $buffered_data{$serial};
+		}
+		else {
+			$buffered_data{$serial} .= $byte;
+		}
+	}
+	return $line;
+}
+
 sub main
 {
 	# Create
 	logger( "INFO", "Opening Xbee device" );
-	my $xbee = Xbee::API->new( { port => '/dev/ttyUSB0', debug => 0, speed => 19200 } );
+	my $xbee = Xbee::API->new( { port => '/dev/ttyUSB0', debug => 0, speed => 9600 } );
 
 	logger( "INFO", "Initializing database" );
 	my $xbdb = new XBDB( "localhost", "xbdb", "xbdb", "_xbdb" );
@@ -155,18 +182,47 @@ sub main
 	# $xbee->transmit_request( "\x0013A200406292D4", "L0H" );
 
 	my $http_request = HTTP::Request->new("POST", "/publish");
+	my $frame;
+	my $lastError = 0;
 
 	while (1) {
-		my $frame = $xbee->read_api;
+
+		
+		eval {
+			$frame = $xbee->read_api;
+		};
+
+		if( $@ ) {
+			if( $lastError == 0 ) {
+				$lastError = 1;
+				logger( "Cannot Xbee device disconnected: $@" );
+			}
+			next;
+		}
+		else {
+			$lastError = 0;
+		}
 
 		# print Dumper( $frame );
 		if( exists $frame->{type} ) {
+			# enrich the frame with data
+			enrichNodeData( $frame, $xbdb );
+
+			# Hold on!  Pool the data before it goes out if it's a frame from RS232 adapter.
+			if( $frame->{nodeInfo}->{deviceId} eq "XBEE:ADAPTER:RS232" )
+			{
+				my $complete_data = buffer_rs232_input( $frame->{serial}, $frame->{data} );
+				next if( !$complete_data );
+				next if( $complete_data eq "300081F000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF" );
+				# continue processing if we've received a full legth-data.
+				$frame->{data} = $complete_data;
+			}
+
 			if( $frame->{type} == 0x80 ) {
 				$xbdb->storeRxFrame( $frame );
 				
 				# Now ... let subscribers be aware of this change!
 				$frame->{type} = "RxResponse";
-				enrichNodeData( $frame, $xbdb );
 				my $msg = to_json( $frame ) . "\r\n";
 				$http_request->content( $msg );
 				$http_request->header( "Content-Length" => length( $msg ) );
@@ -194,7 +250,7 @@ sub main
 				$xbdb->storeRxFrame( $frame );
 				# logger( "INFO", "0x" . unpack( "H*", $frame->{raw_data} ) );
 				$frame->{type} = "SampleReading";
-				enrichNodeData( $frame, $xbdb );
+				
 				my $msg = to_json( $frame ) . "\r\n";
 				$http_request->content( $msg );
 				$http_request->header( "Content-Length" => length( $msg ) );
@@ -203,7 +259,6 @@ sub main
 			else {
 				logger( "INFO", "0x" . unpack( "H*", $frame->{raw_data} ) );
 				$frame->{type} = "Unknown";
-				enrichNodeData( $frame, $xbdb );
 				my $msg = to_json( $frame ) . "\r\n";
 				$http_request->content( $msg );
 				$http_request->header( "Content-Length" => length( $msg ) );
